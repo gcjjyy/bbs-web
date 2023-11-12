@@ -377,6 +377,17 @@ function App() {
         debug('Connected')
         setConnDiag(false)
         terminalClicked()
+        _ctx2d.fillStyle = COLOR[_attr.backgroundColor]
+        _ctx2d.fillRect(
+          0,
+          0,
+          terminalRef.current.width,
+          terminalRef.current.height
+        )
+
+        // Clear whole webpage
+        document.getElementsByTagName('body')[0].style.backgroundColor =
+          COLOR[_attr.backgroundColor]
       })
 
       _io.on('disconnect', () => {
@@ -387,7 +398,7 @@ function App() {
       _io.on('data', (data) => {
         // Check if the password input phrase
         {
-          const pattern = /비밀번호 : /
+          const pattern = /비밀번호 :/
           const result = pattern.exec(Buffer.from(data).toString())
           if (result) {
             setCommandType('password')
