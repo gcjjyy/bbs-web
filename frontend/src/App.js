@@ -44,7 +44,8 @@ const FONTS = [
   { name: '굵은체', value: 'neoiyg' },
   { name: '필기체', value: 'neopil' },
   { name: '굵은달', value: 'neoancient' },
-  { name: '샘물체', value: 'neowater' }
+  { name: '샘물체', value: 'neowater' },
+  { name: 'Win31', value: 'win31' }
 ]
 const DISPLAYS = ['VGA', 'ACI', 'HERCULES']
 

@@ -43,6 +43,13 @@
   font-style: normal;
 }
 
+@font-face {
+  font-family: 'win31';
+  src: url('./Win31.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+}
+
 .command {
   background-color: rgba(0, 0, 0, 0.0);
   font-size: 16px;
