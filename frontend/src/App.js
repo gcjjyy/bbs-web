@@ -23,7 +23,6 @@ import { Buffer } from "buffer";
 Buffer.from("anything", "base64");
 window.Buffer = window.Buffer || require("buffer").Buffer;
 
-const prettyBytes = require('pretty-bytes')
 const debug = require('debug')('bbs-web')
 
 const CANVAS_WIDTH = 640
@@ -433,7 +432,7 @@ function App() {
           `${parseInt((progress.received / progress.total) * 100)}%`
         )
         setRzProgress(
-          `${prettyBytes(progress.received)} / ${prettyBytes(progress.total)}`
+          `${progress.received} / ${progress.total}`
         )
       })
 
@@ -442,7 +441,7 @@ function App() {
           setRzFinished(true)
           setRzProgressNow(100)
           setRzProgressLabel('100%')
-          setRzProgress(`${prettyBytes(rzTotal)} / ${prettyBytes(rzTotal)}`)
+          setRzProgress(`${rzTotal} / ${rzTotal}`)
           setRzDiagText(`파일 준비 완료: ${rzFilename}`)
           setRzUrl(result.url)
         } else {
@@ -469,7 +468,7 @@ function App() {
           `${parseInt((progress.sent / progress.total) * 100)}%`
         )
         setSzProgress(
-          `${prettyBytes(progress.sent)} / ${prettyBytes(progress.total)}`
+          `${progress.sent} / ${progress.total}`
         )
       })
 
@@ -478,7 +477,7 @@ function App() {
           setSzFinished(true)
           setSzProgressNow(100)
           setSzProgressLabel('100%')
-          setSzProgress(`${prettyBytes(szTotal)} / ${prettyBytes(szTotal)}`)
+          setSzProgress(`${szTotal} / ${szTotal}`)
           setSzDiagText(`파일 업로드 완료: ${szFilename}`)
         } else {
           showNotification('오류', '업로드 실패')

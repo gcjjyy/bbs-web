@@ -127,16 +127,20 @@ io.on('connection', function (ioSocket) {
           })
 
           ioSocket.rz.on('close', (code) => {
+            console.log('rz closed:', code)
             ioSocket.rzTransmit = false
             execSync('find . -type f -exec mv -f {} "' + ioSocket.rzFilename + '" 2> /dev/null \\;', {
               cwd:
-              fileCacheDir +
+                fileCacheDir +
                 ioSocket.rzTargetDir
             })
+            const url = '/file-cache/' + ioSocket.rzTargetDir + '/' + ioSocket.rzFilename;
+            console.log('rz-end url:', url)
             ioSocket.emit('rz-end', {
               code,
-              url: '/file-cache/' + ioSocket.rzTargetDir + '/' + ioSocket.rzFilename
+              url,
             })
+            console.log('rz-end emit done')
           })
         }
       }
@@ -227,7 +231,7 @@ io.on('connection', function (ioSocket) {
   })
 
   // File upload
-  app.post('/upload', function(req, res) {
+  app.post('/upload', function (req, res) {
     var result = true
     const receivedFile = req.files.fileToUpload
 
