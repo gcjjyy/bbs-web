@@ -2,7 +2,7 @@
   "name": "bbs-web",
   "version": "1.0.0",
   "repository": "https://github.com/gcjjyy/bbs-web.git",
-  "author": "gcjjyy <gcjjyy@icloud.com>",
+  "author": "gcjjyy <gcjjyy@gmail.com>",
   "license": "MIT",
   "scripts": {
     "serve": "cd frontend; rm -rf build; npm install; npm run build; cd ../server; npm install; cd ..; node server/app.js",

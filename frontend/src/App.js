@@ -983,7 +983,7 @@ function App() {
         />
       </div>
       <div className="text-center mt-3">
-        <a href="mailto:gcjjyy@icloud.com">© 2019 gcjjyy@icloud.com</a>
+        <a href="mailto:gcjjyy@gmail.com">© 2019 QuickBASIC (gcjjyy@gmail.com)</a>
       </div>
 
       {/* Modal for Download */}
