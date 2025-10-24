@@ -8,19 +8,19 @@ git clone https://github.com/gcjjyy/bbs-web.git
 ### server 디렉토리에서 yarn 실행
 ```sh
 cd server
-yarn
+npm install
 ```
 
 ### frontend 빌드
 ```sh
 cd ../frontend
-yarn build
+npm run build
 ```
 
 ### 프로젝트 루트 디렉토리에서 아래 명령어 실행
 ```sh
-yarn serve (또는 npm run serve)
+npm run serve
 ```
 
-### 브라우저에서 http://localhost:8080 접속
+### 브라우저에서 http://localhost:8199 접속
 
