@@ -281,34 +281,25 @@ function App() {
   }
 
   const uploadFile = (file) => {
-    const isAscii = /^[\x00-\x7F]*$/.test(file.name)
-    if (!isAscii) {
-      showNotification(
-        '파일명 오류',
-        '현재는 영문(ASCII)으로만 된 파일명만 지원합니다.'
-      )
-      _io.emit('sz-cancel')
-    } else {
-      const formData = new FormData()
-      formData.append('fileToUpload', file)
+    const formData = new FormData()
+    formData.append('fileToUpload', file)
 
-      Axios.post('upload', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data'
-        }
-      }).then((res) => {
-        if (res.data.result) {
-          _io.emit('sz-upload', {
-            szTargetDir: res.data.szTargetDir,
-            szFilenameUTF8: res.data.szFilenameUTF8,
-            szFilename: res.data.szFilename
-          })
-        } else {
-          showNotification('업로드 오류', '파일 업로드에 실패하였습니다.')
-          _io.emit('sz-cancel')
-        }
-      })
-    }
+    Axios.post('upload', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
+    }).then((res) => {
+      if (res.data.result) {
+        _io.emit('sz-upload', {
+          szTargetDir: res.data.szTargetDir,
+          szFilenameUTF8: res.data.szFilenameUTF8,
+          szFilename: res.data.szFilename
+        })
+      } else {
+        showNotification('업로드 오류', '파일 업로드에 실패하였습니다.')
+        _io.emit('sz-cancel')
+      }
+    })
   }
 
   const rzClose = () => {
@@ -448,7 +439,18 @@ function App() {
     })
 
     _io.on('sz-request', () => {
+      fileToUploadRef.current.value = ''
       fileToUploadRef.current.click()
+
+      const handleFocus = () => {
+        setTimeout(() => {
+          if (!fileToUploadRef.current.files.length) {
+            _io.emit('sz-cancel')
+          }
+          window.removeEventListener('focus', handleFocus)
+        }, 300)
+      }
+      window.addEventListener('focus', handleFocus)
     })
   }
 
@@ -1129,9 +1131,6 @@ function App() {
           if (e.target.files.length) {
             uploadFile(e.target.files[0])
           }
-        }}
-        onCancel={() => {
-          _io.emit('sz-cancel')
         }}
       />
 
