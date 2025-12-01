@@ -9,45 +9,20 @@
 }
 
 @font-face {
-  font-family: 'neodgm';
-  src: url('./neodgm.ttf') format('truetype');
+  font-family: 'IyagiGGC';
+  src: url('https://cdn.jsdelivr.net/gh/JuwanPark/IyagiGGC@latest/IyagiGGC.woff') format('woff');
   font-weight: normal;
   font-style: normal;
 }
 
-@font-face {
-  font-family: 'neoiyg';
-  src: url('./neoiyg.ttf') format('truetype');
-  font-weight: normal;
-  font-style: normal;
+body {
+  font-family: 'IyagiGGC', monospace !important;
+  font-size: 16px !important;
+  font-weight: normal !important;
 }
 
-@font-face {
-  font-family: 'neopil';
-  src: url('./neopil.ttf') format('truetype');
-  font-weight: normal;
-  font-style: normal;
-}
-
-@font-face {
-  font-family: 'neoancient';
-  src: url('./neoancient.ttf') format('truetype');
-  font-weight: normal;
-  font-style: normal;
-}
-
-@font-face {
-  font-family: 'neowater';
-  src: url('./neowater.ttf') format('truetype');
-  font-weight: normal;
-  font-style: normal;
-}
-
-@font-face {
-  font-family: 'win31';
-  src: url('./Win31.ttf') format('truetype');
-  font-weight: normal;
-  font-style: normal;
+body * {
+  font-weight: normal !important;
 }
 
 .command {
@@ -129,7 +104,38 @@ $navbar-light-active-color:         rgba(var(--o-text-rgb), .9);
 $navbar-light-disabled-color:       rgba(var(--o-text-rgb), .3);
 // $navbar-light-toggler-border-color: rgba(var(--o-text), .1);
 .navbar {
-  background: var(--o-bg-element);
+  background: #101020 !important;
+  padding: 0.5rem 1rem;
+  border-bottom: none;
+  font-size: 16px !important;
+}
+
+.navbar * {
+  font-size: 16px !important;
+}
+
+.navbar-brand {
+  letter-spacing: 2px;
+}
+
+.nav-buttons {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.nav-buttons .btn {
+  padding: 0.4rem 0.75rem;
+  border-radius: 4px;
+  border: 1px solid var(--o-border);
+  background: transparent;
+  color: var(--o-text);
+  transition: all 0.2s ease;
+}
+
+.nav-buttons .btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: var(--o-text-2);
 }
 
 

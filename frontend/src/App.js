@@ -38,21 +38,13 @@ let WINDOW_TOP = 0
 let WINDOW_BOTTOM = SCREEN_HEIGHT - 1
 
 const COLOR = []
-const FONTS = [
-  { name: '둥근모', value: 'neodgm' },
-  { name: '굵은체', value: 'neoiyg' },
-  { name: '필기체', value: 'neopil' },
-  { name: '굵은달', value: 'neoancient' },
-  { name: '샘물체', value: 'neowater' },
-  { name: 'Win31', value: 'win31' }
-]
 const DISPLAYS = ['VGA', 'ACI', 'HERCULES']
 
 let _io = null
 let _ctx2d = null
 let _rate = 1.0
 let _selectedDisplay = 'VGA'
-let _selectedFont = 'neodgm'
+const _selectedFont = 'IyagiGGC'
 let _escape = null
 let _cursor = { x: 0, y: 0 }
 let _cursorStore = { x: 0, y: 0 }
@@ -63,7 +55,6 @@ let _smartMouse = []
 let _smartMouseCmd = null
 
 function App() {
-  const [connDiag, setConnDiag] = useState(true)
   const [command, setCommand] = useState('')
   const [commandType, setCommandType] = useState('text')
 
@@ -110,11 +101,6 @@ function App() {
 
   const notiDiagClose = () => {
     setNotiDiag(false)
-  }
-
-  const fontSelected = (font) => {
-    _selectedFont = font
-    displayChanged(false)
   }
 
   const displaySelected = (display) => {
@@ -199,9 +185,6 @@ function App() {
     }
   }
 
-  const doubleWidth = (ch) => {
-    return ch.charCodeAt(0) >= 0x80 && _ctx2d.measureText(ch).width <= 9
-  }
 
   const screenScrollUp = () => {
     const copy = _ctx2d.getImageData(
@@ -248,15 +231,11 @@ function App() {
       COLOR[i] = THEMES[_selectedDisplay][i]
     }
 
-    terminalRef.current.style.fontFamily = _selectedFont
-    commandRef.current.style.fontFamily = _selectedFont
-
     _ctx2d.font = `normal 16px ${_selectedFont}`
 
     terminalClicked()
 
     cookies.set('display', _selectedDisplay, { expires: 365 })
-    cookies.set('font', _selectedFont, { expires: 365 })
 
     if (!isInitial) {
       setApplyDiag(true)
@@ -279,14 +258,10 @@ function App() {
 
   const setupTerminal = () => {
     _selectedDisplay = cookies.get('display') ?? 'VGA'
-    _selectedFont = cookies.get('font') ?? 'neodgm'
 
     // Value check for the prevent error by the previous value
     if (!DISPLAYS.includes(_selectedDisplay)) {
       _selectedDisplay = 'VGA'
-    }
-    if (!FONTS.includes(_selectedFont)) {
-      _selectedFont = 'neodgm'
     }
 
     _ctx2d = terminalRef.current.getContext('2d')
@@ -369,121 +344,114 @@ function App() {
   }
 
   const setupNetwork = () => {
-    // Need to wait some time for download TTF fonts
-    setTimeout(() => {
-      // The expressjs host server is running at the same url with the URL
-      const host = window.location.href
+    const host = window.location.href
 
-      debug('Start conecting...')
-      _io = io(host)
+    debug('Start conecting...')
+    _io = io(host)
 
-      _io.on('connect', () => {
-        debug('Connected')
-        setConnDiag(false)
-        terminalClicked()
-        _ctx2d.fillStyle = COLOR[_attr.backgroundColor]
-        _ctx2d.fillRect(
-          0,
-          0,
-          terminalRef.current.width,
-          terminalRef.current.height
-        )
+    _io.on('connect', () => {
+      debug('Connected')
+      terminalClicked()
+      _ctx2d.fillStyle = COLOR[_attr.backgroundColor]
+      _ctx2d.fillRect(
+        0,
+        0,
+        terminalRef.current.width,
+        terminalRef.current.height
+      )
 
-        // Clear whole webpage
-        document.getElementsByTagName('body')[0].style.backgroundColor =
-          COLOR[_attr.backgroundColor]
-      })
+      // Clear whole webpage
+      document.getElementsByTagName('body')[0].style.backgroundColor =
+        COLOR[_attr.backgroundColor]
+    })
 
-      _io.on('disconnect', () => {
-        debug('Disconnected')
-        write('접속이 종료되었습니다.\r\n')
-      })
+    _io.on('disconnect', () => {
+      debug('Disconnected')
+      write('접속이 종료되었습니다.\r\n')
+    })
 
-      _io.on('data', (data) => {
-        // Check if the password input phrase
-        {
-          const pattern = /비밀번호 :/
-          const result = pattern.exec(Buffer.from(data).toString())
-          if (result) {
-            setCommandType('password')
-          } else {
-            setCommandType('text')
-          }
-        }
-        write(Buffer.from(data).toString())
-      })
-
-      _io.on('rz-begin', (begin) => {
-        debug(`rz-begin: ${begin.filename}`)
-
-        // setRzFilename(begin.filename)
-        rzFilename = begin.filename
-        setRzDiag(true)
-        setRzFinished(false)
-        setRzProgressNow(0)
-        setRzProgressLabel('')
-        setRzDiagText(`파일 준비중: ${begin.filename}`)
-      })
-
-      _io.on('rz-progress', (progress) => {
-        rzTotal = progress.total
-        setRzProgressNow(parseInt((progress.received / progress.total) * 100))
-        setRzProgressLabel(
-          `${parseInt((progress.received / progress.total) * 100)}%`
-        )
-        setRzProgress(
-          `${progress.received} / ${progress.total}`
-        )
-      })
-
-      _io.on('rz-end', (result) => {
-        if (result.code === 0) {
-          setRzFinished(true)
-          setRzProgressNow(100)
-          setRzProgressLabel('100%')
-          setRzProgress(`${rzTotal} / ${rzTotal}`)
-          setRzDiagText(`파일 준비 완료: ${rzFilename}`)
-          setRzUrl(result.url)
+    _io.on('data', (data) => {
+      // Check if the password input phrase
+      {
+        const pattern = /비밀번호 :/
+        const result = pattern.exec(Buffer.from(data).toString())
+        if (result) {
+          setCommandType('password')
         } else {
-          showNotification('오류', '다운로드 실패')
+          setCommandType('text')
         }
-      })
+      }
+      write(Buffer.from(data).toString())
+    })
 
-      _io.on('sz-begin', (begin) => {
-        debug(`sz-begin: ${begin.filename}`)
+    _io.on('rz-begin', (begin) => {
+      debug(`rz-begin: ${begin.filename}`)
 
-        // setRzFilename(begin.filename)
-        szFilename = begin.filename
-        setSzDiag(true)
-        setSzFinished(false)
-        setSzProgressNow(0)
-        setSzProgressLabel('')
-        setSzDiagText(`파일 업로드 중: ${begin.filename}`)
-      })
+      rzFilename = begin.filename
+      setRzDiag(true)
+      setRzFinished(false)
+      setRzProgressNow(0)
+      setRzProgressLabel('')
+      setRzDiagText(`파일 준비중: ${begin.filename}`)
+    })
 
-      _io.on('sz-progress', (progress) => {
-        szTotal = progress.total
-        setSzProgressNow(parseInt((progress.sent / progress.total) * 100))
-        setSzProgressLabel(
-          `${parseInt((progress.sent / progress.total) * 100)}%`
-        )
-        setSzProgress(
-          `${progress.sent} / ${progress.total}`
-        )
-      })
+    _io.on('rz-progress', (progress) => {
+      rzTotal = progress.total
+      setRzProgressNow(parseInt((progress.received / progress.total) * 100))
+      setRzProgressLabel(
+        `${parseInt((progress.received / progress.total) * 100)}%`
+      )
+      setRzProgress(
+        `${progress.received} / ${progress.total}`
+      )
+    })
 
-      _io.on('sz-end', (result) => {
-        if (result.code === 0) {
-          setSzFinished(true)
-          setSzProgressNow(100)
-          setSzProgressLabel('100%')
-          setSzProgress(`${szTotal} / ${szTotal}`)
-          setSzDiagText(`파일 업로드 완료: ${szFilename}`)
-        } else {
-          showNotification('오류', '업로드 실패')
-        }
-      })
-    }, 4000)
+    _io.on('rz-end', (result) => {
+      if (result.code === 0) {
+        setRzFinished(true)
+        setRzProgressNow(100)
+        setRzProgressLabel('100%')
+        setRzProgress(`${rzTotal} / ${rzTotal}`)
+        setRzDiagText(`파일 준비 완료: ${rzFilename}`)
+        setRzUrl(result.url)
+      } else {
+        showNotification('오류', '다운로드 실패')
+      }
+    })
+
+    _io.on('sz-begin', (begin) => {
+      debug(`sz-begin: ${begin.filename}`)
+
+      szFilename = begin.filename
+      setSzDiag(true)
+      setSzFinished(false)
+      setSzProgressNow(0)
+      setSzProgressLabel('')
+      setSzDiagText(`파일 업로드 중: ${begin.filename}`)
+    })
+
+    _io.on('sz-progress', (progress) => {
+      szTotal = progress.total
+      setSzProgressNow(parseInt((progress.sent / progress.total) * 100))
+      setSzProgressLabel(
+        `${parseInt((progress.sent / progress.total) * 100)}%`
+      )
+      setSzProgress(
+        `${progress.sent} / ${progress.total}`
+      )
+    })
+
+    _io.on('sz-end', (result) => {
+      if (result.code === 0) {
+        setSzFinished(true)
+        setSzProgressNow(100)
+        setSzProgressLabel('100%')
+        setSzProgress(`${szTotal} / ${szTotal}`)
+        setSzDiagText(`파일 업로드 완료: ${szFilename}`)
+      } else {
+        showNotification('오류', '업로드 실패')
+      }
+    })
   }
 
   const applyEscape = () => {
@@ -519,17 +487,29 @@ function App() {
             _attr.backgroundColor = 1
           } else {
             switch (parseInt(attr, 10)) {
-              case 1: // Not supported
+              case 1: // Bold (not fully supported, but don't break)
                 break
-              case 2: // Not supported
+              case 2: // Dim (not supported)
                 break
-              case 4: // Not supported
+              case 4: // Underline (not supported)
                 break
-              case 5: // Not supported
+              case 5: // Blink (not supported)
                 break
-              case 7: _attr.reversed = true
+              case 7: // Reverse video on
+                _attr.reversed = true
                 break
-              case 8: // Not supported
+              case 8: // Hidden (not supported)
+                break
+              case 22: // Bold/Dim off
+                break
+              case 24: // Underline off
+                break
+              case 25: // Blink off
+                break
+              case 27: // Reverse video off
+                _attr.reversed = false
+                break
+              case 28: // Hidden off
                 break
               case 30: _attr.textColor = 0
                 break
@@ -563,6 +543,40 @@ function App() {
                 break
               case 47: _attr.backgroundColor = 15
                 break
+              // Bright foreground colors (90-97)
+              case 90: _attr.textColor = 8
+                break
+              case 91: _attr.textColor = 12
+                break
+              case 92: _attr.textColor = 10
+                break
+              case 93: _attr.textColor = 14
+                break
+              case 94: _attr.textColor = 9
+                break
+              case 95: _attr.textColor = 13
+                break
+              case 96: _attr.textColor = 11
+                break
+              case 97: _attr.textColor = 15
+                break
+              // Bright background colors (100-107)
+              case 100: _attr.backgroundColor = 8
+                break
+              case 101: _attr.backgroundColor = 12
+                break
+              case 102: _attr.backgroundColor = 10
+                break
+              case 103: _attr.backgroundColor = 14
+                break
+              case 104: _attr.backgroundColor = 9
+                break
+              case 105: _attr.backgroundColor = 13
+                break
+              case 106: _attr.backgroundColor = 11
+                break
+              case 107: _attr.backgroundColor = 15
+                break
               default: _attr.reversed = false
                 _attr.textColor = 15
                 _attr.backgroundColor = 1
@@ -574,9 +588,9 @@ function App() {
     }
     // Cursor position set
     {
-      // Move _cursor to specific position
+      // Move _cursor to specific position (H or f)
       {
-        const pattern = /\[([0-9]*);([0-9]*)H/
+        const pattern = /\[([0-9]*);([0-9]*)[Hf]/
         const result = pattern.exec(_escape)
         if (result) {
           const param1 = parseInt(result[1], 10)
@@ -585,7 +599,7 @@ function App() {
           _cursor.y = isNaN(param1) ? 0 : param1 - 1
           _cursor.x = isNaN(param2) ? 0 : param2 - 1
         } else {
-          const pattern = /\[([0-9]*)H/
+          const pattern = /\[([0-9]*)[Hf]/
           const result = pattern.exec(_escape)
           if (result) {
             const param1 = parseInt(result[1], 10)
@@ -600,20 +614,70 @@ function App() {
         const result = pattern.exec(_escape)
         if (result) {
           const param1 = parseInt(result[1], 10)
-          _cursor.y -= isNaN(param1) ? 0 : param1
+          _cursor.y -= isNaN(param1) || param1 === 0 ? 1 : param1
           if (_cursor.y < 0) {
             _cursor.y = 0
             _cursor.x = 0
           }
         }
       }
-      // Move _cursor x
+      // Move _cursor x (Right)
       {
         const pattern = /\[([0-9]*)C/
         const result = pattern.exec(_escape)
         if (result) {
           const param1 = parseInt(result[1], 10)
-          _cursor.x += isNaN(param1) ? 0 : param1 - 1
+          _cursor.x += isNaN(param1) || param1 === 0 ? 1 : param1
+        }
+      }
+      // Move _cursor down
+      {
+        const pattern = /\[([0-9]*)B/
+        const result = pattern.exec(_escape)
+        if (result) {
+          const param1 = parseInt(result[1], 10)
+          _cursor.y += isNaN(param1) || param1 === 0 ? 1 : param1
+          if (_cursor.y >= SCREEN_HEIGHT) {
+            _cursor.y = SCREEN_HEIGHT - 1
+          }
+        }
+      }
+      // Move _cursor left
+      {
+        const pattern = /\[([0-9]*)D/
+        const result = pattern.exec(_escape)
+        if (result) {
+          const param1 = parseInt(result[1], 10)
+          _cursor.x -= isNaN(param1) || param1 === 0 ? 1 : param1
+          if (_cursor.x < 0) {
+            _cursor.x = 0
+          }
+        }
+      }
+      // Cursor Next Line (move to beginning of line, N lines down)
+      {
+        const pattern = /\[([0-9]*)E/
+        const result = pattern.exec(_escape)
+        if (result) {
+          const param1 = parseInt(result[1], 10)
+          _cursor.y += isNaN(param1) || param1 === 0 ? 1 : param1
+          _cursor.x = 0
+          if (_cursor.y >= SCREEN_HEIGHT) {
+            _cursor.y = SCREEN_HEIGHT - 1
+          }
+        }
+      }
+      // Cursor Previous Line (move to beginning of line, N lines up)
+      {
+        const pattern = /\[([0-9]*)F/
+        const result = pattern.exec(_escape)
+        if (result) {
+          const param1 = parseInt(result[1], 10)
+          _cursor.y -= isNaN(param1) || param1 === 0 ? 1 : param1
+          _cursor.x = 0
+          if (_cursor.y < 0) {
+            _cursor.y = 0
+          }
         }
       }
       // Store and restore the _cursor position
@@ -626,7 +690,7 @@ function App() {
             backgroundColor: _attr.backgroundColor
           }
         } else if (_escape.endsWith('[u')) {
-          _cursor.x = _cursorStore.x + 1
+          _cursor.x = _cursorStore.x
           _cursor.y = _cursorStore.y
           _attr.textColor = _cursorStore.textColor
           _attr.backgroundColor = _cursorStore.backgroundColor
@@ -635,29 +699,74 @@ function App() {
     }
     // Clear the screen
     {
-      if (_escape.endsWith('[2J')) {
-        _ctx2d.fillStyle = COLOR[_attr.backgroundColor]
-        _ctx2d.fillRect(
-          0,
-          0,
-          terminalRef.current.width,
-          terminalRef.current.height
-        )
+      const pattern = /\[([0-9]*)J/
+      const result = pattern.exec(_escape)
+      if (result) {
+        const param1 = result[1] === '' ? 0 : parseInt(result[1], 10)
 
-        // Clear whole webpage
-        document.getElementsByTagName('body')[0].style.backgroundColor =
-          COLOR[_attr.backgroundColor]
+        if (param1 === 2) {
+          // Clear entire screen
+          _ctx2d.fillStyle = COLOR[_attr.backgroundColor]
+          _ctx2d.fillRect(
+            0,
+            0,
+            terminalRef.current.width,
+            terminalRef.current.height
+          )
 
-        // Refresh _lastPageText (after 2J, there is no any other text)
-        _lastPageText = '\x1b[2J'
-        _lastPageTextPos = [
-          { x: 0, y: 0 },
-          { x: 0, y: 0 },
-          { x: 0, y: 0 },
-          { x: 0, y: 0 }
-        ]
-        _cursor.x = 0
-        _cursor.y = 0
+          // Clear whole webpage
+          document.getElementsByTagName('body')[0].style.backgroundColor =
+            COLOR[_attr.backgroundColor]
+
+          // Refresh _lastPageText (after 2J, there is no any other text)
+          _lastPageText = '\x1b[2J'
+          _lastPageTextPos = [
+            { x: 0, y: 0 },
+            { x: 0, y: 0 },
+            { x: 0, y: 0 },
+            { x: 0, y: 0 }
+          ]
+          _cursor.x = 0
+          _cursor.y = 0
+        } else if (param1 === 0) {
+          // Clear from cursor to end of screen
+          _ctx2d.fillStyle = COLOR[_attr.backgroundColor]
+          // Clear from cursor to end of current line
+          _ctx2d.fillRect(
+            _cursor.x * FONT_WIDTH,
+            _cursor.y * FONT_HEIGHT,
+            terminalRef.current.width - _cursor.x * FONT_WIDTH,
+            FONT_HEIGHT
+          )
+          // Clear all lines below cursor
+          if (_cursor.y < SCREEN_HEIGHT - 1) {
+            _ctx2d.fillRect(
+              0,
+              (_cursor.y + 1) * FONT_HEIGHT,
+              terminalRef.current.width,
+              terminalRef.current.height - (_cursor.y + 1) * FONT_HEIGHT
+            )
+          }
+        } else if (param1 === 1) {
+          // Clear from beginning of screen to cursor
+          _ctx2d.fillStyle = COLOR[_attr.backgroundColor]
+          // Clear all lines above cursor
+          if (_cursor.y > 0) {
+            _ctx2d.fillRect(
+              0,
+              0,
+              terminalRef.current.width,
+              _cursor.y * FONT_HEIGHT
+            )
+          }
+          // Clear from beginning of current line to cursor
+          _ctx2d.fillRect(
+            0,
+            _cursor.y * FONT_HEIGHT,
+            (_cursor.x + 1) * FONT_WIDTH,
+            FONT_HEIGHT
+          )
+        }
       }
     }
     // Clear a line
@@ -715,7 +824,7 @@ function App() {
       return false
     }
     const lastChar = _escape.charAt(_escape.length - 1)
-    if ('@ABCDFGHJKSfhlmprsu'.indexOf(lastChar) !== -1) {
+    if ('@ABCDEFGHJKSfhlmprsu'.indexOf(lastChar) !== -1) {
       return true
     } else {
       return false
@@ -747,22 +856,12 @@ function App() {
         // Remove ANSI _escape code from the string(result[0])
         result[0] = result[0].replace(/\x1b\[=.{1,3}[FG]{1}/gi, '').trim()
 
-        // If there is doubleWidthCharacter, replace it to '가' for correct measuring
-        var normalText = ''
-        for (const ch of result[0]) {
-          if (doubleWidth(ch)) {
-            normalText += '가'
-          } else {
-            normalText += ch
-          }
-        }
-
         const link = {
           command: result[1],
           px: {
             x: _lastPageTextPos[result.index].x * FONT_WIDTH * _rate,
             y: _lastPageTextPos[result.index].y * FONT_HEIGHT * _rate,
-            width: _ctx2d.measureText(normalText).width * _rate,
+            width: _ctx2d.measureText(result[0]).width * _rate,
             height: FONT_HEIGHT * _rate
           }
         }
@@ -835,12 +934,6 @@ function App() {
               let textColor = COLOR[_attr.textColor]
               let backgroundColor = COLOR[_attr.backgroundColor]
 
-              if (doubleWidth(ch)) {
-                _ctx2d.save()
-                _ctx2d.scale(2, 1)
-                cursor_px.x /= 2
-              }
-
               if (_attr.reversed) {
                 textColor = COLOR[_attr.backgroundColor]
                 backgroundColor = COLOR[_attr.textColor]
@@ -855,10 +948,6 @@ function App() {
               )
               _ctx2d.fillStyle = textColor
               _ctx2d.fillText(ch, cursor_px.x, cursor_px.y)
-
-              if (doubleWidth(ch)) {
-                _ctx2d.restore()
-              }
 
               _cursor.x += charWidth
             }
@@ -891,32 +980,22 @@ function App() {
   return (
     <div>
       <Navbar>
-        <img src="/logo.png" className="mr-2" width="24px" height="24px" />
-        <Navbar.Brand style={{ paddingBottom: '0.45rem' }}>
-          <span style={{ fontSize: '1rem', color: 'yellow' }}>도</span>
-          <span style={{ fontSize: '1rem', color: 'white' }}>/</span>
-          <span style={{ fontSize: '1rem', color: 'red' }}>스</span>
-          <span style={{ fontSize: '1rem', color: 'white' }}>/</span>
-          <span style={{ fontSize: '1rem', color: 'cyan' }}>박</span>
-          <span style={{ fontSize: '1rem', color: 'white' }}>/</span>
-          <span style={{ fontSize: '1rem', color: 'lightgreen' }}>물</span>
-          <span style={{ fontSize: '1rem', color: 'white' }}>/</span>
-          <span style={{ fontSize: '1rem', color: 'yellow' }}>관</span>
+        <Navbar.Brand>
+          <span style={{ color: 'yellow' }}>도</span>
+          <span style={{ color: 'white' }}>/</span>
+          <span style={{ color: 'red' }}>스</span>
+          <span style={{ color: 'white' }}>/</span>
+          <span style={{ color: 'cyan' }}>박</span>
+          <span style={{ color: 'white' }}>/</span>
+          <span style={{ color: 'lightgreen' }}>물</span>
+          <span style={{ color: 'white' }}>/</span>
+          <span style={{ color: 'yellow' }}>관</span>
         </Navbar.Brand>
-        <Nav onSelect={(selectedKey) => fontSelected(selectedKey)}>
-          <NavDropdown title="🅰">
-            {FONTS.map((font) => (
-              <NavDropdown.Item key={font.value} eventKey={font.value}>
-                {font.name}
-              </NavDropdown.Item>
-            ))}
-          </NavDropdown>
-        </Nav>
         <Nav
           className="mr-auto"
           onSelect={(selectedKey) => displaySelected(selectedKey)}
         >
-          <NavDropdown title="🎨">
+          <NavDropdown title="🎨 테마">
             {DISPLAYS.map((display) => (
               <NavDropdown.Item key={display} eventKey={display}>
                 {display}
@@ -924,39 +1003,28 @@ function App() {
             ))}
           </NavDropdown>
         </Nav>
-        <OverlayTrigger
-          placement="bottom"
-          overlay={<Tooltip>현재 화면의 텍스트를 갈무리합니다.</Tooltip>}
-        >
-          <Button variant="info" onClick={() => copyToClipboard()}>
-            📋
-          </Button>
-        </OverlayTrigger>
-        {szPreparing ? (
+        <div className="nav-buttons">
           <OverlayTrigger
             placement="bottom"
-            overlay={<Tooltip>파일 준비 중...</Tooltip>}
+            overlay={<Tooltip>화면 갈무리</Tooltip>}
           >
-            <Spinner
-              style={{ marginLeft: '0.35rem' }}
-              size="sm"
-              animation="border"
-            />
-          </OverlayTrigger>
-        ) : (
-          <OverlayTrigger
-            placement="bottom"
-            overlay={<Tooltip>업로드 할 파일을 미리 준비합니다.</Tooltip>}
-          >
-            <Button
-              variant="info"
-              style={{ marginLeft: '0.35rem' }}
-              onClick={() => prepareUpload()}
-            >
-              💾
+            <Button variant="secondary" onClick={() => copyToClipboard()}>
+              📋 갈무리
             </Button>
           </OverlayTrigger>
-        )}
+          {szPreparing ? (
+            <Spinner size="sm" animation="border" variant="light" />
+          ) : (
+            <OverlayTrigger
+              placement="bottom"
+              overlay={<Tooltip>파일 업로드 준비</Tooltip>}
+            >
+              <Button variant="secondary" onClick={() => prepareUpload()}>
+                💾 업로드
+              </Button>
+            </OverlayTrigger>
+          )}
+        </div>
       </Navbar>
       <div className="text-center mt-3">
         <canvas
@@ -1041,7 +1109,6 @@ function App() {
 
       {/* Modal for Upload */}
 
-      <LoadingModal show={connDiag} message="접속 중입니다.." />
       <LoadingModal show={applyDiag} message="적용 중입니다.." />
     </div>
   )
