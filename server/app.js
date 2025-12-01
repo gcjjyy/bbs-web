@@ -1,3 +1,4 @@
+const fs = require('fs')
 const net = require('net')
 const mkdir = require('mkdirp-sync')
 const http = require('http')
@@ -165,11 +166,16 @@ io.on('connection', function (ioSocket) {
   // Handle upload start signal from client
   ioSocket.on('sz-upload', (data) => {
     console.log('sz-upload:', data)
+
+    // Normalize filename for display
+    const displayFilename = data.szFilenameUTF8.normalize('NFC')
+    console.log('sz-upload displayFilename:', displayFilename)
+
     if (ioSocket.szWaiting) {
       ioSocket.szWaiting = false
       ioSocket.szTransmit = true
 
-      ioSocket.sz = spawn('sz', [data.szFilename, '-e', '-E', '-vv'], {
+      ioSocket.sz = spawn('sz', [data.szFilenameEUCKR, '-e', '-E', '-vv'], {
         cwd: fileCacheDir + data.szTargetDir,
         setsid: true
       })
@@ -184,7 +190,7 @@ io.on('connection', function (ioSocket) {
           const pattern = /Sending: (.*)/
           const result = pattern.exec(decodedString)
           if (result) {
-            ioSocket.emit('sz-begin', { filename: data.szFilenameUTF8 })
+            ioSocket.emit('sz-begin', { filename: displayFilename })
           }
         }
         {
@@ -243,36 +249,33 @@ io.on('connection', function (ioSocket) {
     const szFileReady = true
     const szTargetDir = uuidv1()
 
-    // The szFilename is euc-kr
-    const szFilenameUTF8 = receivedFile.name
-    const szFilename = iconv.encode(receivedFile.name, 'euc-kr').toString('ascii')
+    // Fix double-encoded UTF-8: decode as Latin-1 to get original bytes, then interpret as UTF-8
+    const fixedName = Buffer.from(receivedFile.name, 'latin1').toString('utf8')
+    // Normalize filename from NFD (macOS) to NFC
+    const szFilenameUTF8 = fixedName.normalize('NFC')
+    console.log('Fixed filename:', szFilenameUTF8)
+
+    // Convert filename to EUC-KR for BBS server
+    const szFilenameEUCKR = iconv.encode(szFilenameUTF8, 'euc-kr').toString('binary')
 
     const dir = fileCacheDir + szTargetDir
     mkdir(dir)
 
-    // Save file to the directory
-    receivedFile.mv(dir + `/${receivedFile.name}`, (err) => {
+    // Save file with EUC-KR filename (works on Linux, not macOS)
+    const filePath = dir + '/' + szFilenameEUCKR
+    receivedFile.mv(filePath, (err) => {
       if (err) {
         console.error('File mv error:', err)
         result = false
       }
     })
 
-    // Rename the filename to euc-kr from utf8
-    try {
-      execSync('convmv --notest -f utf8 -t euckr * 2> /dev/null', {
-        cwd: dir
-      })
-    } catch (e) {
-      // Ignore error (e.g., ASCII-only filenames don't need conversion)
-    }
-
     res.send({
       result,
       szFileReady,
       szTargetDir,
       szFilenameUTF8,
-      szFilename
+      szFilenameEUCKR
     })
   })
 })

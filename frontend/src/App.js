@@ -293,7 +293,7 @@ function App() {
         _io.emit('sz-upload', {
           szTargetDir: res.data.szTargetDir,
           szFilenameUTF8: res.data.szFilenameUTF8,
-          szFilename: res.data.szFilename
+          szFilenameEUCKR: res.data.szFilenameEUCKR
         })
       } else {
         showNotification('업로드 오류', '파일 업로드에 실패하였습니다.')
