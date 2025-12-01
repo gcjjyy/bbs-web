@@ -167,17 +167,11 @@ io.on('connection', function (ioSocket) {
   ioSocket.on('sz-upload', (data) => {
     console.log('sz-upload:', data)
 
-    // Normalize filename for display
-    const displayFilename = data.szFilenameUTF8.normalize('NFC')
-    console.log('sz-upload displayFilename:', displayFilename)
-
     if (ioSocket.szWaiting) {
       ioSocket.szWaiting = false
       ioSocket.szTransmit = true
 
-      // Decode Base64 to get EUC-KR filename
-      const filenameEUCKR = Buffer.from(data.szFilenameEUCKR, 'base64').toString('binary')
-      ioSocket.sz = spawn('sz', [filenameEUCKR, '-e', '-E', '-vv'], {
+      ioSocket.sz = spawn('sz', [data.szFilename, '-e', '-E', '-vv'], {
         cwd: fileCacheDir + data.szTargetDir,
         setsid: true
       })
@@ -187,12 +181,12 @@ io.on('connection', function (ioSocket) {
       })
 
       ioSocket.sz.stderr.on('data', (szData) => {
-        const decodedString = iconv.decode(Buffer.from(szData), 'euc-kr')
+        const decodedString = szData.toString()
         {
           const pattern = /Sending: (.*)/
           const result = pattern.exec(decodedString)
           if (result) {
-            ioSocket.emit('sz-begin', { filename: displayFilename })
+            ioSocket.emit('sz-begin', { filename: data.szFilename })
           }
         }
         {
@@ -248,23 +242,14 @@ io.on('connection', function (ioSocket) {
 
     console.log('Received a file to upload:', receivedFile)
 
-    const szFileReady = true
     const szTargetDir = uuidv1()
-
-    // Fix double-encoded UTF-8: decode as Latin-1 to get original bytes, then interpret as UTF-8
-    const fixedName = Buffer.from(receivedFile.name, 'latin1').toString('utf8')
-    // Normalize filename from NFD (macOS) to NFC
-    const szFilenameUTF8 = fixedName.normalize('NFC')
-    console.log('Fixed filename:', szFilenameUTF8)
-
-    // Convert filename to EUC-KR for BBS server (Base64 encoded for safe JSON transfer)
-    const szFilenameEUCKR = iconv.encode(szFilenameUTF8, 'euc-kr').toString('base64')
+    const szFilename = receivedFile.name
 
     const dir = fileCacheDir + szTargetDir
     mkdir(dir)
 
-    // Save file with EUC-KR filename (works on Linux, not macOS)
-    const filePath = dir + '/' + Buffer.from(szFilenameEUCKR, 'base64').toString('binary')
+    // Save file
+    const filePath = dir + '/' + szFilename
     receivedFile.mv(filePath, (err) => {
       if (err) {
         console.error('File mv error:', err)
@@ -274,10 +259,8 @@ io.on('connection', function (ioSocket) {
 
     res.send({
       result,
-      szFileReady,
       szTargetDir,
-      szFilenameUTF8,
-      szFilenameEUCKR
+      szFilename
     })
   })
 })

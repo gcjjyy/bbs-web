@@ -281,6 +281,13 @@ function App() {
   }
 
   const uploadFile = (file) => {
+    const isAscii = /^[\x00-\x7F]*$/.test(file.name)
+    if (!isAscii) {
+      showNotification('파일명 오류', '업로드는 영문 파일명만 지원합니다.')
+      _io.emit('sz-cancel')
+      return
+    }
+
     const formData = new FormData()
     formData.append('fileToUpload', file)
 
@@ -292,8 +299,7 @@ function App() {
       if (res.data.result) {
         _io.emit('sz-upload', {
           szTargetDir: res.data.szTargetDir,
-          szFilenameUTF8: res.data.szFilenameUTF8,
-          szFilenameEUCKR: res.data.szFilenameEUCKR
+          szFilename: res.data.szFilename
         })
       } else {
         showNotification('업로드 오류', '파일 업로드에 실패하였습니다.')
@@ -1050,6 +1056,17 @@ function App() {
               📋 갈무리
             </Button>
           </OverlayTrigger>
+          <OverlayTrigger
+            placement="bottom"
+            overlay={<Tooltip>파일 업로드 가이드</Tooltip>}
+          >
+            <Button variant="secondary" onClick={() => showNotification(
+              '파일 업로드 가이드',
+              <>게시글에서 up 명령어를 통해 파일을 첨부할 수 있습니다.{'\n\n'}1. 파일명은 <span style={{ color: 'yellow' }}>영문</span>만 지원합니다.{'\n'}2. 게시판에서 3번 <span style={{ color: 'yellow' }}>Zmodem</span>을 선택하여 업로드하세요.{'\n'}3. 파일 선택 창이 나타나면 업로드할 파일을 선택하세요.</>
+            )}>
+              📁 업로드 가이드
+            </Button>
+          </OverlayTrigger>
         </div>
       </Navbar>
       <div className="text-center mt-3">
@@ -1115,7 +1132,7 @@ function App() {
       {/* Modal Notification */}
       <Modal show={notiDiag} size="xs" backdrop="static" centered>
         <Modal.Header>{notiDiagTitle}</Modal.Header>
-        <Modal.Body className="text-center m-4">{notiDiagText}</Modal.Body>
+        <Modal.Body className="m-4" style={{ whiteSpace: 'pre-line' }}>{notiDiagText}</Modal.Body>
         <div className="text-center m-3">
           <Button onClick={() => notiDiagClose()}>확인</Button>
         </div>
