@@ -868,6 +868,44 @@ function App() {
         _smartMouse.push(link)
       }
     }
+
+    // Remove overlapping smart mouse areas on the same line, keep the leftmost one
+    const filtered = []
+    for (const sm of _smartMouse) {
+      let dominated = false
+      for (const other of filtered) {
+        // Check if on the same line
+        if (sm.px.y === other.px.y) {
+          // Check if overlapping
+          const smRight = sm.px.x + sm.px.width
+          const otherRight = other.px.x + other.px.width
+          if (!(smRight <= other.px.x || sm.px.x >= otherRight)) {
+            // Overlapping: keep only the leftmost one
+            if (other.px.x <= sm.px.x) {
+              dominated = true
+              break
+            }
+          }
+        }
+      }
+      if (!dominated) {
+        // Also remove any existing items that this one dominates (if sm is more left)
+        for (let i = filtered.length - 1; i >= 0; i--) {
+          const other = filtered[i]
+          if (sm.px.y === other.px.y) {
+            const smRight = sm.px.x + sm.px.width
+            const otherRight = other.px.x + other.px.width
+            if (!(smRight <= other.px.x || sm.px.x >= otherRight)) {
+              if (sm.px.x < other.px.x) {
+                filtered.splice(i, 1)
+              }
+            }
+          }
+        }
+        filtered.push(sm)
+      }
+    }
+    _smartMouse = filtered
   }
 
   const moveCommandInputPosition = () => {
