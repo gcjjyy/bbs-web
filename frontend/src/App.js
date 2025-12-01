@@ -1,12 +1,10 @@
 import cookies from 'browser-cookies'
 import copy from 'copy-to-clipboard'
-import { createRef } from 'react'
 import { useEffect, useRef, useState } from 'react'
 import {
   Button,
   Nav,
   Modal,
-  Spinner,
   ProgressBar,
   Navbar,
   NavDropdown,
@@ -74,7 +72,6 @@ function App() {
   // Upload
   var szFilename = ''
   var szTotal = 0
-  const [szPreparing, setSzPreparing] = useState(false)
   const [szDiag, setSzDiag] = useState(false)
   const [szDiagText, setSzDiagText] = useState('')
   const [szProgress, setSzProgress] = useState('')
@@ -91,7 +88,14 @@ function App() {
   const smartMouseBoxRef = useRef()
   const commandRef = useRef()
 
-  const fileToUploadRef = createRef()
+  const fileToUploadRef = useRef()
+
+  const formatBytes = (bytes) => {
+    if (bytes === 0) return '0 B'
+    const units = ['B', 'KB', 'MB', 'GB']
+    const i = Math.floor(Math.log(bytes) / Math.log(1024))
+    return parseFloat((bytes / Math.pow(1024, i)).toFixed(2)) + ' ' + units[i]
+  }
 
   const showNotification = (title, text) => {
     setNotiDiagTitle(title)
@@ -276,10 +280,6 @@ function App() {
     displayChanged(true)
   }
 
-  const prepareUpload = () => {
-    fileToUploadRef.current.click()
-  }
-
   const uploadFile = (file) => {
     const isAscii = /^[\x00-\x7F]*$/.test(file.name)
     if (!isAscii) {
@@ -287,11 +287,10 @@ function App() {
         '파일명 오류',
         '현재는 영문(ASCII)으로만 된 파일명만 지원합니다.'
       )
+      _io.emit('sz-cancel')
     } else {
       const formData = new FormData()
       formData.append('fileToUpload', file)
-
-      setSzPreparing(true)
 
       Axios.post('upload', formData, {
         headers: {
@@ -299,20 +298,15 @@ function App() {
         }
       }).then((res) => {
         if (res.data.result) {
-          _io.emit('sz-ready', {
-            szFileReady: res.data.szFileReady,
+          _io.emit('sz-upload', {
             szTargetDir: res.data.szTargetDir,
             szFilenameUTF8: res.data.szFilenameUTF8,
             szFilename: res.data.szFilename
           })
-          showNotification(
-            `업로드 파일 준비: ${res.data.szFilenameUTF8}`,
-            '업로드할 파일이 준비되었습니다. Zmodem으로 업로드 해주세요.'
-          )
         } else {
-          showNotification('업로드 파일 준비', '업로드 파일 준비 실패')
+          showNotification('업로드 오류', '파일 업로드에 실패하였습니다.')
+          _io.emit('sz-cancel')
         }
-        setSzPreparing(false)
       })
     }
   }
@@ -402,7 +396,7 @@ function App() {
         `${parseInt((progress.received / progress.total) * 100)}%`
       )
       setRzProgress(
-        `${progress.received} / ${progress.total}`
+        `${formatBytes(progress.received)} / ${formatBytes(progress.total)}`
       )
     })
 
@@ -411,7 +405,7 @@ function App() {
         setRzFinished(true)
         setRzProgressNow(100)
         setRzProgressLabel('100%')
-        setRzProgress(`${rzTotal} / ${rzTotal}`)
+        setRzProgress(`${formatBytes(rzTotal)} / ${formatBytes(rzTotal)}`)
         setRzDiagText(`파일 준비 완료: ${rzFilename}`)
         setRzUrl(result.url)
       } else {
@@ -437,7 +431,7 @@ function App() {
         `${parseInt((progress.sent / progress.total) * 100)}%`
       )
       setSzProgress(
-        `${progress.sent} / ${progress.total}`
+        `${formatBytes(progress.sent)} / ${formatBytes(progress.total)}`
       )
     })
 
@@ -446,11 +440,15 @@ function App() {
         setSzFinished(true)
         setSzProgressNow(100)
         setSzProgressLabel('100%')
-        setSzProgress(`${szTotal} / ${szTotal}`)
+        setSzProgress(`${formatBytes(szTotal)} / ${formatBytes(szTotal)}`)
         setSzDiagText(`파일 업로드 완료: ${szFilename}`)
       } else {
         showNotification('오류', '업로드 실패')
       }
+    })
+
+    _io.on('sz-request', () => {
+      fileToUploadRef.current.click()
     })
   }
 
@@ -1050,18 +1048,6 @@ function App() {
               📋 갈무리
             </Button>
           </OverlayTrigger>
-          {szPreparing ? (
-            <Spinner size="sm" animation="border" variant="light" />
-          ) : (
-            <OverlayTrigger
-              placement="bottom"
-              overlay={<Tooltip>파일 업로드 준비</Tooltip>}
-            >
-              <Button variant="secondary" onClick={() => prepareUpload()}>
-                💾 업로드
-              </Button>
-            </OverlayTrigger>
-          )}
         </div>
       </Navbar>
       <div className="text-center mt-3">
@@ -1133,7 +1119,7 @@ function App() {
         </div>
       </Modal>
 
-      {/* Hidden input for prepare upload */}
+      {/* Hidden input for upload */}
       <input
         type="file"
         name="fileToUpload"
@@ -1143,6 +1129,9 @@ function App() {
           if (e.target.files.length) {
             uploadFile(e.target.files[0])
           }
+        }}
+        onCancel={() => {
+          _io.emit('sz-cancel')
         }}
       />
 

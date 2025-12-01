@@ -145,65 +145,14 @@ io.on('connection', function (ioSocket) {
         }
       }
 
-      // Check sz
+      // Check sz - request file from client when B0100 detected
       {
         const pattern = /B0100/
         const result = pattern.exec(buffer.toString())
         if (result) {
-          if (ioSocket.szFileReady) {
-            ioSocket.szTransmit = true
-
-            ioSocket.sz = spawn('sz', [ioSocket.szFilename, '-e', '-E', '-vv'], {
-              cwd: fileCacheDir + ioSocket.szTargetDir,
-              setsid: true
-            })
-
-            ioSocket.sz.stdout.on('data', (data) => {
-              ioSocket.tSocket.write(data)
-            })
-
-            ioSocket.sz.stderr.on('data', (data) => {
-              const decodedString = iconv.decode(Buffer.from(data), 'euc-kr')
-              {
-                const pattern = /Sending: (.*)/
-                const result = pattern.exec(decodedString)
-                if (result) {
-                  ioSocket.emit('sz-begin', { filename: ioSocket.szFilenameUTF8 })
-                }
-              }
-              {
-                const pattern =
-                  /Bytes sent: ([0-9 ]*)\/([0-9 ]*).*BPS:([0-9 ]*)/gi
-
-                let result = null
-                while ((result = pattern.exec(decodedString))) {
-                  if (result) {
-                    const sent = parseInt(result[1], 10)
-                    const total = parseInt(result[2], 10)
-                    const bps = parseInt(result[3], 10)
-
-                    ioSocket.emit('sz-progress', { sent, total, bps })
-                  }
-                }
-              }
-            })
-
-            ioSocket.sz.on('close', (code) => {
-              ioSocket.szTransmit = false
-              ioSocket.emit('sz-end', { code })
-            })
-          } else {
-            // Send it is not supported
-            ioSocket.emit(
-              'data',
-              '업로드할 파일이 준비되지 않았습니다.'
-            )
-            // Send abort
-            const abortPacket = [
-              24, 24, 24, 24, 24, 24, 24, 24, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 0
-            ]
-            ioSocket.netSocket.write(Buffer.from(abortPacket))
-          }
+          console.log('B0100 detected, requesting file from client')
+          ioSocket.szWaiting = true
+          ioSocket.emit('sz-request', {})
         }
       }
     }
@@ -213,12 +162,66 @@ io.on('connection', function (ioSocket) {
     ioSocket.tSocket.write(iconv.encode(Buffer.from(data), 'euc-kr'))
   })
 
-  ioSocket.on('sz-ready', (data) => {
-    console.log('sz-ready:', data)
-    ioSocket.szFileReady = data.szFileReady
-    ioSocket.szTargetDir = data.szTargetDir
-    ioSocket.szFilenameUTF8 = data.szFilenameUTF8
-    ioSocket.szFilename = data.szFilename
+  // Handle upload start signal from client
+  ioSocket.on('sz-upload', (data) => {
+    console.log('sz-upload:', data)
+    if (ioSocket.szWaiting) {
+      ioSocket.szWaiting = false
+      ioSocket.szTransmit = true
+
+      ioSocket.sz = spawn('sz', [data.szFilename, '-e', '-E', '-vv'], {
+        cwd: fileCacheDir + data.szTargetDir,
+        setsid: true
+      })
+
+      ioSocket.sz.stdout.on('data', (szData) => {
+        ioSocket.tSocket.write(szData)
+      })
+
+      ioSocket.sz.stderr.on('data', (szData) => {
+        const decodedString = iconv.decode(Buffer.from(szData), 'euc-kr')
+        {
+          const pattern = /Sending: (.*)/
+          const result = pattern.exec(decodedString)
+          if (result) {
+            ioSocket.emit('sz-begin', { filename: data.szFilenameUTF8 })
+          }
+        }
+        {
+          const pattern =
+            /Bytes sent: ([0-9 ]*)\/([0-9 ]*).*BPS:([0-9 ]*)/gi
+
+          let result = null
+          while ((result = pattern.exec(decodedString))) {
+            if (result) {
+              const sent = parseInt(result[1], 10)
+              const total = parseInt(result[2], 10)
+              const bps = parseInt(result[3], 10)
+
+              ioSocket.emit('sz-progress', { sent, total, bps })
+            }
+          }
+        }
+      })
+
+      ioSocket.sz.on('close', (code) => {
+        ioSocket.szTransmit = false
+        ioSocket.emit('sz-end', { code })
+      })
+    }
+  })
+
+  // Handle upload cancel from client
+  ioSocket.on('sz-cancel', () => {
+    console.log('sz-cancel: user cancelled file selection')
+    if (ioSocket.szWaiting) {
+      ioSocket.szWaiting = false
+      // Send abort packet to BBS
+      const abortPacket = [
+        24, 24, 24, 24, 24, 24, 24, 24, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 0
+      ]
+      ioSocket.netSocket.write(Buffer.from(abortPacket))
+    }
   })
 
   ioSocket.on('error', (error) => {
@@ -256,9 +259,13 @@ io.on('connection', function (ioSocket) {
     })
 
     // Rename the filename to euc-kr from utf8
-    execSync('convmv --notest -f utf8 -t euckr * 2> /dev/null', {
-      cwd: dir
-    })
+    try {
+      execSync('convmv --notest -f utf8 -t euckr * 2> /dev/null', {
+        cwd: dir
+      })
+    } catch (e) {
+      // Ignore error (e.g., ASCII-only filenames don't need conversion)
+    }
 
     res.send({
       result,
