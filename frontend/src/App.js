@@ -1086,6 +1086,11 @@ function App() {
           value={command}
           onChange={(event) => setCommand(event.target.value)}
           onKeyUp={(event) => onKeyUp(event.key)}
+          autoComplete="off"
+          autoCorrect="off"
+          autoCapitalize="off"
+          spellCheck="false"
+          data-form-type="other"
         />
       </div>
       <div className="text-center mt-3">
