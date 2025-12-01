@@ -175,7 +175,9 @@ io.on('connection', function (ioSocket) {
       ioSocket.szWaiting = false
       ioSocket.szTransmit = true
 
-      ioSocket.sz = spawn('sz', [data.szFilenameEUCKR, '-e', '-E', '-vv'], {
+      // Decode Base64 to get EUC-KR filename
+      const filenameEUCKR = Buffer.from(data.szFilenameEUCKR, 'base64').toString('binary')
+      ioSocket.sz = spawn('sz', [filenameEUCKR, '-e', '-E', '-vv'], {
         cwd: fileCacheDir + data.szTargetDir,
         setsid: true
       })
@@ -255,14 +257,14 @@ io.on('connection', function (ioSocket) {
     const szFilenameUTF8 = fixedName.normalize('NFC')
     console.log('Fixed filename:', szFilenameUTF8)
 
-    // Convert filename to EUC-KR for BBS server
-    const szFilenameEUCKR = iconv.encode(szFilenameUTF8, 'euc-kr').toString('binary')
+    // Convert filename to EUC-KR for BBS server (Base64 encoded for safe JSON transfer)
+    const szFilenameEUCKR = iconv.encode(szFilenameUTF8, 'euc-kr').toString('base64')
 
     const dir = fileCacheDir + szTargetDir
     mkdir(dir)
 
     // Save file with EUC-KR filename (works on Linux, not macOS)
-    const filePath = dir + '/' + szFilenameEUCKR
+    const filePath = dir + '/' + Buffer.from(szFilenameEUCKR, 'base64').toString('binary')
     receivedFile.mv(filePath, (err) => {
       if (err) {
         console.error('File mv error:', err)
