@@ -57,7 +57,6 @@ let _smartMouseCmd = null
 function App() {
   const [command, setCommand] = useState('')
   const [commandType, setCommandType] = useState('text')
-  const [inputKey, setInputKey] = useState(0)
 
   const [applyDiag, setApplyDiag] = useState(false)
 
@@ -183,7 +182,6 @@ function App() {
   const onKeyUp = (key) => {
     if (key === 'Enter') {
       enterCommand(command)
-      setInputKey(prev => prev + 1)
     }
   }
 
@@ -1082,10 +1080,9 @@ function App() {
           onClick={() => smartMouseClicked()}
         ></div>
         <input
-          key={inputKey}
           ref={commandRef}
-          type={commandType}
-          className="command"
+          type="text"
+          className={commandType === 'password' ? 'command command-password' : 'command'}
           value={command}
           onChange={(event) => setCommand(event.target.value)}
           onKeyUp={(event) => onKeyUp(event.key)}
