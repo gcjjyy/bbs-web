@@ -151,9 +151,25 @@ io.on('connection', function (ioSocket) {
         const pattern = /B0100/
         const result = pattern.exec(buffer.toString())
         if (result) {
-          console.log('B0100 detected, requesting file from client')
-          ioSocket.szWaiting = true
-          ioSocket.emit('sz-request', {})
+          // Only send sz-request if not already waiting for file selection
+          if (!ioSocket.szWaiting) {
+            console.log('B0100 detected, requesting file from client')
+            ioSocket.szWaiting = true
+            ioSocket.emit('sz-request', {})
+          } else {
+            console.log('B0100 detected but already waiting for file selection, ignoring')
+          }
+        }
+      }
+
+      // Auto-select Zmodem protocol (send '3' automatically)
+      {
+        const bufferStr = iconv.decode(buffer, 'euc-kr')
+        const pattern = /송신 프로토콜\(1:Xmodem, 2:Ymodem, 3:Zmodem\):/
+        const result = pattern.exec(bufferStr)
+        if (result) {
+          console.log('Protocol selection detected, auto-sending 3 for Zmodem')
+          ioSocket.tSocket.write(iconv.encode('3\r\n', 'euc-kr'))
         }
       }
     }

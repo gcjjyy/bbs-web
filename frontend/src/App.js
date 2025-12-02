@@ -84,6 +84,9 @@ function App() {
   const [notiDiagTitle, setNotiDiagTitle] = useState('')
   const [notiDiagText, setNotiDiagText] = useState('')
 
+  // File select request (for Safari compatibility)
+  const [fileSelectDiag, setFileSelectDiag] = useState(false)
+
   const terminalRef = useRef()
   const smartMouseBoxRef = useRef()
   const commandRef = useRef()
@@ -445,18 +448,8 @@ function App() {
     })
 
     _io.on('sz-request', () => {
-      fileToUploadRef.current.value = ''
-      fileToUploadRef.current.click()
-
-      const handleFocus = () => {
-        setTimeout(() => {
-          if (!fileToUploadRef.current.files.length) {
-            _io.emit('sz-cancel')
-          }
-          window.removeEventListener('focus', handleFocus)
-        }, 300)
-      }
-      window.addEventListener('focus', handleFocus)
+      // Show file select dialog (for Safari compatibility - requires user gesture)
+      setFileSelectDiag(true)
     })
   }
 
@@ -841,33 +834,48 @@ function App() {
     _smartMouse = []
     smartMouseBoxRef.current.style.visibility = 'hidden'
 
+    // captureOnly: true = highlight only captured group, false = highlight full match
     const smartMousePatterns = [
-      /([0-9]+)\.\s[ㄱ-힣a-z/\s]+/gi, // 99. xx
-      /\[([0-9]+)\]\s[ㄱ-힣a-z/\s]+/gi, // [99].xx
-      /\(([a-z]+),/gi, // (x,
-      /,([a-z]+),/gi, // ,x,
-      /,([a-z]+)\)/gi, // ,x)
-      /\(([a-z]+)\)/gi, // (x)
-      /\[([a-z0-9]+)\]/gi, // [x]
-      /(https?:\/\/[a-z0-9-\.\/?&_=#]+)/gi, // URL
-      /([0-9]+) +.+ +[0-9-]+ +[0-9]+ + [0-9]+ +.*/gi, // Article
-      /([0-9]+) +[0-9\.]+ .*/gi, // News (JTBC)
-      /([0-9]+) +.+ +[0-9-]+ .*/gi, // News (Oh my news, IT news)
-      /([0-9]+) +(JTBC|오마이뉴스|전자신문|속보|정치|연예|전체기사|주요기사|사회|오늘의 뉴스|게임)/gi // News Titles
+      { pattern: /([0-9]+)\.\s[ㄱ-힣a-z/\s]+/gi, captureOnly: false }, // 99. xx
+      { pattern: /\[([0-9]+)\]\s[ㄱ-힣a-z/\s]+/gi, captureOnly: false }, // [99].xx
+      { pattern: /\(([a-z]+),/gi, captureOnly: true }, // (x,
+      { pattern: /,([a-z]+),/gi, captureOnly: true }, // ,x,
+      { pattern: /,([a-z]+)\)/gi, captureOnly: true }, // ,x)
+      { pattern: /\(([a-z]+)\)/gi, captureOnly: true }, // (x)
+      { pattern: /\[([a-z0-9]+)\]/gi, captureOnly: true }, // [x]
+      { pattern: /(https?:\/\/[a-z0-9-\.\/?&_=#]+)/gi, captureOnly: false }, // URL
+      { pattern: /([0-9]+) +.+ +[0-9-]+ +[0-9]+ + [0-9]+ +.*/gi, captureOnly: false }, // Article
+      { pattern: /([0-9]+) +[0-9\.]+ .*/gi, captureOnly: false }, // News (JTBC)
+      { pattern: /([0-9]+) +.+ +[0-9-]+ .*/gi, captureOnly: false }, // News (Oh my news, IT news)
+      { pattern: /([0-9]+) +(JTBC|오마이뉴스|전자신문|속보|정치|연예|전체기사|주요기사|사회|오늘의 뉴스|게임)/gi, captureOnly: false } // News Titles
     ]
 
-    for (const pattern of smartMousePatterns) {
+    for (const { pattern, captureOnly } of smartMousePatterns) {
       var result = null
       while ((result = pattern.exec(_lastPageText))) {
-        // Remove ANSI _escape code from the string(result[0])
-        result[0] = result[0].replace(/\x1b\[=.{1,3}[FG]{1}/gi, '').trim()
+        // Remove ANSI escape code
+        const fullMatch = result[0].replace(/\x1b\[=.{1,3}[FG]{1}/gi, '').trim()
+        const command = result[1].replace(/\x1b\[=.{1,3}[FG]{1}/gi, '').trim()
+
+        let linkX, linkWidth
+        if (captureOnly) {
+          // Highlight only the captured group
+          const captureOffset = result[0].indexOf(result[1])
+          const captureIndex = result.index + captureOffset
+          linkX = _lastPageTextPos[captureIndex].x * FONT_WIDTH * _rate
+          linkWidth = _ctx2d.measureText(command).width * _rate
+        } else {
+          // Highlight full match
+          linkX = _lastPageTextPos[result.index].x * FONT_WIDTH * _rate
+          linkWidth = _ctx2d.measureText(fullMatch).width * _rate
+        }
 
         const link = {
-          command: result[1],
+          command: command,
           px: {
-            x: _lastPageTextPos[result.index].x * FONT_WIDTH * _rate,
+            x: linkX,
             y: _lastPageTextPos[result.index].y * FONT_HEIGHT * _rate,
-            width: _ctx2d.measureText(result[0]).width * _rate,
+            width: linkWidth,
             height: FONT_HEIGHT * _rate
           }
         }
@@ -1056,17 +1064,6 @@ function App() {
               📋 갈무리
             </Button>
           </OverlayTrigger>
-          <OverlayTrigger
-            placement="bottom"
-            overlay={<Tooltip>파일 업로드 가이드</Tooltip>}
-          >
-            <Button variant="secondary" onClick={() => showNotification(
-              '파일 업로드 가이드',
-              <>게시글에서 up 명령어를 통해 파일을 첨부할 수 있습니다.{'\n\n'}1. 파일명은 <span style={{ color: 'yellow' }}>영문</span>만 지원합니다.{'\n'}2. 게시판에서 3번 <span style={{ color: 'yellow' }}>Zmodem</span>을 선택하여 업로드하세요.{'\n'}3. 파일 선택 창이 나타나면 업로드할 파일을 선택하세요.</>
-            )}>
-              📁 업로드 가이드
-            </Button>
-          </OverlayTrigger>
         </div>
       </Navbar>
       <div className="text-center mt-3">
@@ -1132,7 +1129,7 @@ function App() {
       {/* Modal Notification */}
       <Modal show={notiDiag} size="xs" backdrop="static" centered>
         <Modal.Header>{notiDiagTitle}</Modal.Header>
-        <Modal.Body className="m-4" style={{ whiteSpace: 'pre-line' }}>{notiDiagText}</Modal.Body>
+        <Modal.Body className="text-center m-4" style={{ whiteSpace: 'pre-line' }}>{notiDiagText}</Modal.Body>
         <div className="text-center m-3">
           <Button onClick={() => notiDiagClose()}>확인</Button>
         </div>
@@ -1151,7 +1148,22 @@ function App() {
         }}
       />
 
-      {/* Modal for Upload */}
+      {/* Modal for File Select Request (Safari compatibility) */}
+      <Modal show={fileSelectDiag} size="xs" backdrop="static" centered>
+        <Modal.Header>파일 업로드</Modal.Header>
+        <Modal.Body className="text-center m-4">업로드할 파일을 선택해주세요.</Modal.Body>
+        <div className="text-center m-3">
+          <Button className="mr-2" onClick={() => {
+            setFileSelectDiag(false)
+            fileToUploadRef.current.value = ''
+            fileToUploadRef.current.click()
+          }}>파일 선택</Button>
+          <Button variant="secondary" onClick={() => {
+            setFileSelectDiag(false)
+            _io.emit('sz-cancel')
+          }}>취소</Button>
+        </div>
+      </Modal>
 
       <LoadingModal show={applyDiag} message="적용 중입니다.." />
     </div>

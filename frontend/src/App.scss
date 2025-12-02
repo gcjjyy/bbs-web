@@ -262,4 +262,10 @@ $nav-divider-color:                 var(--o-border);
 $modal-content-bg:                  var(--o-bg-element);
 
 
-@import '~bootstrap/scss/bootstrap'
+@import '~bootstrap/scss/bootstrap';
+
+// Modal custom styles
+.modal-content {
+  background: #101020 !important;
+  border: 1px solid var(--o-border);
+}
