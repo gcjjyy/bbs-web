@@ -12,6 +12,50 @@ const fileUpload = require('express-fileupload')
 const { TelnetSocket } = require('telnet-stream')
 require('console-stamp')(console, 'yyyy/mm/dd HH:MM:ss.l')
 
+// EUC-KR special block characters mapping
+// These non-standard characters are replaced with custom escape sequences
+// that survive iconv decoding and can be handled on the client side
+// Format: { from: [hi, lo], escCode: 'XXX' } -> becomes ESC[=XXXB
+const EUC_KR_BLOCK_REPLACEMENTS = [
+  // 0xADFC -> Full Block (fills entire 16x16 cell)
+  { from: [0xAD, 0xFC], escCode: '901' },
+  // 0xADFD -> Lower Half Block
+  { from: [0xAD, 0xFD], escCode: '903' },
+  // 0xAEA2 -> Upper Half Block
+  { from: [0xAE, 0xA2], escCode: '902' }
+]
+
+// Preprocess buffer to replace special EUC-KR block characters
+// Replaces with: ESC [ = XXX B (e.g., \x1b[=901B)
+// This is ASCII, survives iconv, and can be detected by client's applyEscape()
+const preprocessBlockChars = (buffer) => {
+  const result = []
+  let i = 0
+  while (i < buffer.length) {
+    let replaced = false
+    // Check for 2-byte EUC-KR sequences
+    if (i + 1 < buffer.length) {
+      for (const { from, escCode } of EUC_KR_BLOCK_REPLACEMENTS) {
+        if (buffer[i] === from[0] && buffer[i + 1] === from[1]) {
+          // Insert escape sequence: ESC [ = XXX B
+          const seq = `\x1b[=${escCode}B`
+          for (const c of seq) {
+            result.push(c.charCodeAt(0))
+          }
+          i += 2
+          replaced = true
+          break
+        }
+      }
+    }
+    if (!replaced) {
+      result.push(buffer[i])
+      i++
+    }
+  }
+  return Buffer.from(result)
+}
+
 const ECHO = 1
 const TERMINAL_TYPE = 24
 const WINDOW_SIZE = 31
@@ -78,7 +122,9 @@ io.on('connection', function (ioSocket) {
     } else if (ioSocket.szTransmit) {
       ioSocket.sz.stdin.write(Buffer.from(buffer))
     } else {
-      ioSocket.tSocket.decodeStream.write(buffer)
+      // Preprocess to replace special EUC-KR block characters before decoding
+      const processedBuffer = preprocessBlockChars(buffer)
+      ioSocket.tSocket.decodeStream.write(processedBuffer)
 
       // Check rz
       {

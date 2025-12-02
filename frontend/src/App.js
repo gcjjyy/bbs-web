@@ -454,6 +454,59 @@ function App() {
   }
 
   const applyEscape = () => {
+    // Special block characters (from non-standard EUC-KR)
+    // Pattern: ESC[=9XXB where XX is block type (01=full, 02=upper half, etc.)
+    {
+      const pattern = /\[=9([0-9]{2})B/
+      const result = pattern.exec(_escape)
+      if (result) {
+        const blockType = parseInt(result[1], 10)
+        const cursor_px = {
+          x: _cursor.x * FONT_WIDTH,
+          y: _cursor.y * FONT_HEIGHT
+        }
+        let textColor = COLOR[_attr.textColor]
+        let backgroundColor = COLOR[_attr.backgroundColor]
+        if (_attr.reversed) {
+          textColor = COLOR[_attr.backgroundColor]
+          backgroundColor = COLOR[_attr.textColor]
+        }
+
+        // Draw 2-column wide block (original EUC-KR char was 2-byte wide)
+        const blockWidth = 2 * FONT_WIDTH
+        const blockHeight = FONT_HEIGHT
+
+        // Clear background first
+        _ctx2d.fillStyle = backgroundColor
+        _ctx2d.fillRect(cursor_px.x, cursor_px.y, blockWidth, blockHeight)
+
+        // Draw the block based on type
+        _ctx2d.fillStyle = textColor
+        switch (blockType) {
+          case 1: // Full block (901)
+            _ctx2d.fillRect(cursor_px.x, cursor_px.y, blockWidth, blockHeight)
+            break
+          case 2: // Upper half block (902)
+            _ctx2d.fillRect(cursor_px.x, cursor_px.y, blockWidth, blockHeight / 2)
+            break
+          case 3: // Lower half block (903)
+            _ctx2d.fillRect(cursor_px.x, cursor_px.y + blockHeight / 2, blockWidth, blockHeight / 2)
+            break
+          case 4: // Left half block (904)
+            _ctx2d.fillRect(cursor_px.x, cursor_px.y, blockWidth / 2, blockHeight)
+            break
+          case 5: // Right half block (905)
+            _ctx2d.fillRect(cursor_px.x + blockWidth / 2, cursor_px.y, blockWidth / 2, blockHeight)
+            break
+          default: // Unknown block type, draw full block
+            _ctx2d.fillRect(cursor_px.x, cursor_px.y, blockWidth, blockHeight)
+        }
+
+        // Advance cursor by 2 columns
+        _cursor.x += 2
+        return // Don't process other escape handlers
+      }
+    }
     // Text color
     {
       const pattern = /\[=([0-9]*)F/
