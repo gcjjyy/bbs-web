@@ -1230,14 +1230,26 @@ function App() {
               <small>웹 서버로 전송</small>
               <small>{uploadProgress}</small>
             </div>
-            <ProgressBar animated now={uploadProgressNow} label={uploadProgressLabel} variant="info" />
+            <ProgressBar
+              striped
+              animated
+              now={uploadProgressNow === 0 ? 100 : uploadProgressNow}
+              label={uploadProgressLabel}
+              variant={uploadProgressNow === 0 ? 'secondary' : 'info'}
+            />
           </div>
           <div>
             <div className="d-flex justify-content-between mb-1">
               <small>BBS로 전송</small>
               <small>{szProgress}</small>
             </div>
-            <ProgressBar animated now={szProgressNow} label={szProgressLabel} variant="success" />
+            <ProgressBar
+              striped
+              animated
+              now={szProgressNow === 0 ? 100 : szProgressNow}
+              label={szProgressLabel}
+              variant={szProgressNow === 0 ? 'secondary' : 'success'}
+            />
           </div>
         </Modal.Body>
         {szFinished && (
