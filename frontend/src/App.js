@@ -339,8 +339,6 @@ function App() {
     const socketId = _io?.id || ''
     const fileSize = file.size
 
-    console.log(`[Upload] Starting upload - socketId: ${socketId}, fileSize: ${fileSize}`)
-
     Axios.post(`upload?socketId=${socketId}&fileSize=${fileSize}`, formData, {
       headers: {
         'Content-Type': 'multipart/form-data'
@@ -467,8 +465,6 @@ function App() {
     })
 
     _io.on('upload-progress', (progress) => {
-      const now = new Date().toISOString()
-      console.log(`[${now}] upload-progress received:`, progress)
       const percent = Math.round((progress.loaded / progress.total) * 100)
       setUploadProgressNow(percent)
       setUploadProgressLabel(`${percent}%`)
@@ -1231,7 +1227,7 @@ function App() {
         <Modal.Body className="m-4">
           <div className="mb-3">
             <div className="d-flex justify-content-between mb-1">
-              <small>서버로 전송</small>
+              <small>웹 서버로 전송</small>
               <small>{uploadProgress}</small>
             </div>
             <ProgressBar animated now={uploadProgressNow} label={uploadProgressLabel} variant="info" />

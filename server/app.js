@@ -174,7 +174,6 @@ io.on('connection', function (ioSocket) {
           })
 
           ioSocket.rz.on('close', (code) => {
-            console.log('rz closed:', code)
             ioSocket.rzTransmit = false
             execSync('find . -type f -exec mv -f {} "' + ioSocket.rzFilename + '" 2> /dev/null \\;', {
               cwd:
@@ -182,12 +181,10 @@ io.on('connection', function (ioSocket) {
                 ioSocket.rzTargetDir
             })
             const url = '/file-cache/' + ioSocket.rzTargetDir + '/' + ioSocket.rzFilename;
-            console.log('rz-end url:', url)
             ioSocket.emit('rz-end', {
               code,
               url,
             })
-            console.log('rz-end emit done')
           })
         }
       }
@@ -199,11 +196,8 @@ io.on('connection', function (ioSocket) {
         if (result) {
           // Only send sz-request if not already waiting for file selection
           if (!ioSocket.szWaiting) {
-            console.log('B0100 detected, requesting file from client')
             ioSocket.szWaiting = true
             ioSocket.emit('sz-request', {})
-          } else {
-            console.log('B0100 detected but already waiting for file selection, ignoring')
           }
         }
       }
@@ -214,7 +208,6 @@ io.on('connection', function (ioSocket) {
         const pattern = /송신 프로토콜\(1:Xmodem, 2:Ymodem, 3:Zmodem\):/
         const result = pattern.exec(bufferStr)
         if (result) {
-          console.log('Protocol selection detected, auto-sending 3 for Zmodem')
           ioSocket.tSocket.write(iconv.encode('3\r\n', 'euc-kr'))
         }
       }
@@ -227,8 +220,6 @@ io.on('connection', function (ioSocket) {
 
   // Handle upload start signal from client
   ioSocket.on('sz-upload', (data) => {
-    console.log('sz-upload:', data)
-
     if (ioSocket.szWaiting) {
       ioSocket.szWaiting = false
       ioSocket.szTransmit = true
@@ -244,12 +235,10 @@ io.on('connection', function (ioSocket) {
 
       ioSocket.sz.stderr.on('data', (szData) => {
         const decodedString = szData.toString()
-        console.log('[sz stderr]', decodedString)
         {
           const pattern = /Sending: (.*)/
           const result = pattern.exec(decodedString)
           if (result) {
-            console.log('[sz] Sending detected:', result[1])
             ioSocket.emit('sz-begin', { filename: data.szFilename })
           }
         }
@@ -263,8 +252,6 @@ io.on('connection', function (ioSocket) {
               const sent = parseInt(result[1], 10)
               const total = parseInt(result[2], 10)
               const bps = parseInt(result[3], 10)
-
-              console.log('[sz] Progress:', sent, '/', total, 'BPS:', bps)
               ioSocket.emit('sz-progress', { sent, total, bps })
             }
           }
@@ -280,7 +267,6 @@ io.on('connection', function (ioSocket) {
 
   // Handle upload cancel from client
   ioSocket.on('sz-cancel', () => {
-    console.log('sz-cancel: user cancelled file selection')
     if (ioSocket.szWaiting) {
       ioSocket.szWaiting = false
       // Send abort packet to BBS
@@ -309,8 +295,6 @@ app.post('/upload', function (req, res) {
   const socketId = req.query.socketId
   const fileSize = parseInt(req.query.fileSize, 10) || 0
 
-  console.log(`[Upload] Request received - socketId: ${socketId}, fileSize: ${fileSize}`)
-
   const busboy = Busboy({
     headers: req.headers,
     limits: { fileSize: MAX_FILE_SIZE }
@@ -334,8 +318,6 @@ app.post('/upload', function (req, res) {
 
     filePath = dir + '/' + szFilename
     writeStream = fs.createWriteStream(filePath)
-
-    console.log(`[Upload] File stream started: ${szFilename}`)
 
     file.on('data', (data) => {
       receivedBytes += data.length
@@ -362,7 +344,6 @@ app.post('/upload', function (req, res) {
           total: fileSize
         })
       }
-      console.log(`Upload finished: ${szFilename} (${receivedBytes} bytes)`)
     })
 
     file.on('limit', () => {
