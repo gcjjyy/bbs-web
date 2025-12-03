@@ -75,10 +75,14 @@ function App() {
   var szTotal = 0
   const [szDiag, setSzDiag] = useState(false)
   const [szDiagText, setSzDiagText] = useState('')
+  // 1단계: 브라우저 → 서버
+  const [uploadProgress, setUploadProgress] = useState('')
+  const [uploadProgressNow, setUploadProgressNow] = useState(0)
+  const [uploadProgressLabel, setUploadProgressLabel] = useState('')
+  // 2단계: 서버 → BBS
   const [szProgress, setSzProgress] = useState('')
   const [szProgressNow, setSzProgressNow] = useState(0)
   const [szProgressLabel, setSzProgressLabel] = useState('')
-  const [szProgressVariant, setSzProgressVariant] = useState('info')
   const [szFinished, setSzFinished] = useState(false)
 
   // Notification
@@ -318,9 +322,15 @@ function App() {
     szFilename = fileName
     setSzDiag(true)
     setSzFinished(false)
+    setSzDiagText(`파일 업로드: ${fileName}`)
+    // 1단계 progress 초기화
+    setUploadProgress('')
+    setUploadProgressNow(0)
+    setUploadProgressLabel('0%')
+    // 2단계 progress 초기화
+    setSzProgress('')
     setSzProgressNow(0)
     setSzProgressLabel('0%')
-    setSzDiagText(`서버로 전송 중: ${fileName}`)
 
     const formData = new FormData()
     formData.append('fileToUpload', file, fileName) // Use fileName for the upload
@@ -460,11 +470,9 @@ function App() {
       const now = new Date().toISOString()
       console.log(`[${now}] upload-progress received:`, progress)
       const percent = Math.round((progress.loaded / progress.total) * 100)
-      setSzProgressNow(percent)
-      setSzProgressLabel(`${percent}%`)
-      setSzProgressVariant('info')
-      setSzDiagText('서버로 전송 중...')
-      setSzProgress(`${formatBytes(progress.loaded)} / ${formatBytes(progress.total)}`)
+      setUploadProgressNow(percent)
+      setUploadProgressLabel(`${percent}%`)
+      setUploadProgress(`${formatBytes(progress.loaded)} / ${formatBytes(progress.total)}`)
     })
 
     _io.on('sz-begin', (begin) => {
@@ -473,8 +481,6 @@ function App() {
       szFilename = begin.filename
       setSzProgressNow(0)
       setSzProgressLabel('0%')
-      setSzProgressVariant('success')
-      setSzDiagText(`BBS로 전송 중: ${begin.filename}`)
       setSzProgress('')
     })
 
@@ -1222,9 +1228,21 @@ function App() {
       {/* Modal for Upload */}
       <Modal show={szDiag} size="xs" backdrop="static" centered>
         <Modal.Header>{szDiagText}</Modal.Header>
-        <Modal.Body className="text-center m-4">
-          {szProgress}
-          <ProgressBar animated now={szProgressNow} label={szProgressLabel} variant={szProgressVariant} />
+        <Modal.Body className="m-4">
+          <div className="mb-3">
+            <div className="d-flex justify-content-between mb-1">
+              <small>서버로 전송</small>
+              <small>{uploadProgress}</small>
+            </div>
+            <ProgressBar animated now={uploadProgressNow} label={uploadProgressLabel} variant="info" />
+          </div>
+          <div>
+            <div className="d-flex justify-content-between mb-1">
+              <small>BBS로 전송</small>
+              <small>{szProgress}</small>
+            </div>
+            <ProgressBar animated now={szProgressNow} label={szProgressLabel} variant="success" />
+          </div>
         </Modal.Body>
         {szFinished && (
           <div className="text-center m-3">
