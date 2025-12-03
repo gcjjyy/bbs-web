@@ -1,3 +1,4 @@
+import './App.css'
 import cookies from 'browser-cookies'
 import copy from 'copy-to-clipboard'
 import { useEffect, useRef, useState } from 'react'
@@ -1233,9 +1234,10 @@ function App() {
             <ProgressBar
               striped
               animated
-              now={uploadProgressNow === 0 ? 100 : uploadProgressNow}
+              now={uploadProgressNow}
               label={uploadProgressLabel}
-              variant={uploadProgressNow === 0 ? 'secondary' : 'info'}
+              variant="info"
+              className="progress-striped-bg"
             />
           </div>
           <div>
@@ -1246,9 +1248,10 @@ function App() {
             <ProgressBar
               striped
               animated
-              now={szProgressNow === 0 ? 100 : szProgressNow}
+              now={szProgressNow}
               label={szProgressLabel}
-              variant={szProgressNow === 0 ? 'secondary' : 'success'}
+              variant="success"
+              className="progress-striped-bg"
             />
           </div>
         </Modal.Body>
