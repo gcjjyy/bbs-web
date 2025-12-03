@@ -9,7 +9,8 @@ import {
   Navbar,
   NavDropdown,
   OverlayTrigger,
-  Tooltip
+  Tooltip,
+  Form
 } from 'react-bootstrap'
 import io from 'socket.io-client'
 import './App.scss'
@@ -77,6 +78,7 @@ function App() {
   const [szProgress, setSzProgress] = useState('')
   const [szProgressNow, setSzProgressNow] = useState(0)
   const [szProgressLabel, setSzProgressLabel] = useState('')
+  const [szProgressVariant, setSzProgressVariant] = useState('info')
   const [szFinished, setSzFinished] = useState(false)
 
   // Notification
@@ -86,6 +88,12 @@ function App() {
 
   // File select request (for Safari compatibility)
   const [fileSelectDiag, setFileSelectDiag] = useState(false)
+
+  // File rename dialog (for non-ASCII filenames)
+  const [renameDiag, setRenameDiag] = useState(false)
+  const [renameFile, setRenameFile] = useState(null)
+  const [renameInput, setRenameInput] = useState('')
+  const [renameExt, setRenameExt] = useState('')
 
   const terminalRef = useRef()
   const smartMouseBoxRef = useRef()
@@ -283,31 +291,66 @@ function App() {
     displayChanged(true)
   }
 
-  const uploadFile = (file) => {
-    const isAscii = /^[\x00-\x7F]*$/.test(file.name)
-    if (!isAscii) {
-      showNotification('파일명 오류', '업로드는 영문 파일명만 지원합니다.')
+  const MAX_FILE_SIZE = 512 * 1024 * 1024 // 512MB
+
+  const uploadFile = (file, overrideName = null) => {
+    // Check file size limit
+    if (file.size > MAX_FILE_SIZE) {
+      showNotification('파일 크기 오류', `파일 크기가 512MB를 초과합니다. (${formatBytes(file.size)})`)
       _io.emit('sz-cancel')
       return
     }
 
-    const formData = new FormData()
-    formData.append('fileToUpload', file)
+    const fileName = overrideName || file.name
+    const isAscii = /^[\x00-\x7F]*$/.test(fileName)
+    if (!isAscii) {
+      // Show rename dialog instead of error
+      const lastDot = file.name.lastIndexOf('.')
+      const ext = lastDot > 0 ? file.name.substring(lastDot) : ''
+      setRenameFile(file)
+      setRenameExt(ext)
+      setRenameInput('')
+      setRenameDiag(true)
+      return
+    }
 
-    Axios.post('upload', formData, {
+    // Show upload dialog immediately for HTTP upload progress
+    szFilename = fileName
+    setSzDiag(true)
+    setSzFinished(false)
+    setSzProgressNow(0)
+    setSzProgressLabel('0%')
+    setSzDiagText(`서버로 전송 중: ${fileName}`)
+
+    const formData = new FormData()
+    formData.append('fileToUpload', file, fileName) // Use fileName for the upload
+
+    // Get socket ID for server-side progress tracking
+    const socketId = _io?.id || ''
+    const fileSize = file.size
+
+    console.log(`[Upload] Starting upload - socketId: ${socketId}, fileSize: ${fileSize}`)
+
+    Axios.post(`upload?socketId=${socketId}&fileSize=${fileSize}`, formData, {
       headers: {
         'Content-Type': 'multipart/form-data'
       }
     }).then((res) => {
       if (res.data.result) {
+        // Progress continues with sz-begin event from server
         _io.emit('sz-upload', {
           szTargetDir: res.data.szTargetDir,
           szFilename: res.data.szFilename
         })
       } else {
         showNotification('업로드 오류', '파일 업로드에 실패하였습니다.')
+        setSzDiag(false)
         _io.emit('sz-cancel')
       }
+    }).catch((err) => {
+      showNotification('업로드 오류', '파일 업로드에 실패하였습니다.')
+      setSzDiag(false)
+      _io.emit('sz-cancel')
     })
   }
 
@@ -413,15 +456,26 @@ function App() {
       }
     })
 
+    _io.on('upload-progress', (progress) => {
+      const now = new Date().toISOString()
+      console.log(`[${now}] upload-progress received:`, progress)
+      const percent = Math.round((progress.loaded / progress.total) * 100)
+      setSzProgressNow(percent)
+      setSzProgressLabel(`${percent}%`)
+      setSzProgressVariant('info')
+      setSzDiagText('서버로 전송 중...')
+      setSzProgress(`${formatBytes(progress.loaded)} / ${formatBytes(progress.total)}`)
+    })
+
     _io.on('sz-begin', (begin) => {
       debug(`sz-begin: ${begin.filename}`)
 
       szFilename = begin.filename
-      setSzDiag(true)
-      setSzFinished(false)
       setSzProgressNow(0)
-      setSzProgressLabel('')
-      setSzDiagText(`파일 업로드 중: ${begin.filename}`)
+      setSzProgressLabel('0%')
+      setSzProgressVariant('success')
+      setSzDiagText(`BBS로 전송 중: ${begin.filename}`)
+      setSzProgress('')
     })
 
     _io.on('sz-progress', (progress) => {
@@ -1170,7 +1224,7 @@ function App() {
         <Modal.Header>{szDiagText}</Modal.Header>
         <Modal.Body className="text-center m-4">
           {szProgress}
-          <ProgressBar animated now={szProgressNow} label={szProgressLabel} />
+          <ProgressBar animated now={szProgressNow} label={szProgressLabel} variant={szProgressVariant} />
         </Modal.Body>
         {szFinished && (
           <div className="text-center m-3">
@@ -1213,6 +1267,56 @@ function App() {
           }}>파일 선택</Button>
           <Button variant="secondary" onClick={() => {
             setFileSelectDiag(false)
+            _io.emit('sz-cancel')
+          }}>취소</Button>
+        </div>
+      </Modal>
+
+      {/* Modal for File Rename (non-ASCII filename) */}
+      <Modal show={renameDiag} size="sm" backdrop="static" centered>
+        <Modal.Header>파일명 변경</Modal.Header>
+        <Modal.Body className="m-3">
+          <p>파일명에 한글이 포함되어 있습니다.<br/>영문 파일명을 입력해주세요.</p>
+          <Form.Group>
+            <Form.Label>새 파일명 {renameExt && <span className="text-muted">({renameExt} 자동 추가)</span>}</Form.Label>
+            <Form.Control
+              type="text"
+              placeholder="영문 파일명 입력"
+              value={renameInput}
+              onChange={(e) => setRenameInput(e.target.value)}
+              onKeyPress={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault()
+                  // Trigger upload button click
+                  document.getElementById('rename-upload-btn').click()
+                }
+              }}
+            />
+          </Form.Group>
+        </Modal.Body>
+        <div className="text-center m-3">
+          <Button id="rename-upload-btn" className="mr-2" onClick={() => {
+            let newName = renameInput.trim()
+            if (!newName) {
+              showNotification('입력 오류', '파일명을 입력해주세요.')
+              return
+            }
+            // Auto-add extension if not present
+            if (renameExt && !newName.toLowerCase().endsWith(renameExt.toLowerCase())) {
+              newName = newName + renameExt
+            }
+            // Check if new name is ASCII
+            const isAscii = /^[\x00-\x7F]*$/.test(newName)
+            if (!isAscii) {
+              showNotification('입력 오류', '영문, 숫자, 특수문자만 사용 가능합니다.')
+              return
+            }
+            setRenameDiag(false)
+            uploadFile(renameFile, newName)
+          }}>업로드</Button>
+          <Button variant="secondary" onClick={() => {
+            setRenameDiag(false)
+            setRenameFile(null)
             _io.emit('sz-cancel')
           }}>취소</Button>
         </div>

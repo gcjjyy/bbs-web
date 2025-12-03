@@ -7,7 +7,7 @@ const uuidv1 = require('uuid').v1
 const iconv = require('iconv-lite')
 const express = require('express')
 const execSync = require('child_process').execSync
-const fileUpload = require('express-fileupload')
+const Busboy = require('busboy')
 
 const { TelnetSocket } = require('telnet-stream')
 require('console-stamp')(console, 'yyyy/mm/dd HH:MM:ss.l')
@@ -63,7 +63,7 @@ const WILL_OPTIONS = [ECHO, TERMINAL_TYPE, WINDOW_SIZE]
 
 const app = express()
 
-app.use(fileUpload())
+// File upload is handled by busboy in the /upload endpoint
 app.use(express.static(process.cwd() + '/frontend/build'))
 
 const httpServer = http.createServer(app)
@@ -244,16 +244,18 @@ io.on('connection', function (ioSocket) {
 
       ioSocket.sz.stderr.on('data', (szData) => {
         const decodedString = szData.toString()
+        console.log('[sz stderr]', decodedString)
         {
           const pattern = /Sending: (.*)/
           const result = pattern.exec(decodedString)
           if (result) {
+            console.log('[sz] Sending detected:', result[1])
             ioSocket.emit('sz-begin', { filename: data.szFilename })
           }
         }
         {
           const pattern =
-            /Bytes sent: ([0-9 ]*)\/([0-9 ]*).*BPS:([0-9 ]*)/gi
+            /Bytes Sent:\s*([0-9]+)\/([0-9]+).*BPS:\s*([0-9]+)/gi
 
           let result = null
           while ((result = pattern.exec(decodedString))) {
@@ -262,6 +264,7 @@ io.on('connection', function (ioSocket) {
               const total = parseInt(result[2], 10)
               const bps = parseInt(result[3], 10)
 
+              console.log('[sz] Progress:', sent, '/', total, 'BPS:', bps)
               ioSocket.emit('sz-progress', { sent, total, bps })
             }
           }
@@ -297,34 +300,96 @@ io.on('connection', function (ioSocket) {
     ioSocket.netSocket.destroy()
   })
 
-  // File upload
-  app.post('/upload', function (req, res) {
-    var result = true
-    const receivedFile = req.files.fileToUpload
+})
 
-    console.log('Received a file to upload:', receivedFile)
+// File upload with progress tracking via busboy
+const MAX_FILE_SIZE = 512 * 1024 * 1024 // 512MB
 
-    const szTargetDir = uuidv1()
-    const szFilename = receivedFile.name
+app.post('/upload', function (req, res) {
+  const socketId = req.query.socketId
+  const fileSize = parseInt(req.query.fileSize, 10) || 0
+
+  console.log(`[Upload] Request received - socketId: ${socketId}, fileSize: ${fileSize}`)
+
+  const busboy = Busboy({
+    headers: req.headers,
+    limits: { fileSize: MAX_FILE_SIZE }
+  })
+
+  let szTargetDir = null
+  let szFilename = null
+  let filePath = null
+  let writeStream = null
+  let receivedBytes = 0
+  let lastProgressTime = 0
+  let dataEventCount = 0
+
+  busboy.on('file', (fieldname, file, info) => {
+    const { filename } = info
+    szFilename = filename
+    szTargetDir = uuidv1()
 
     const dir = fileCacheDir + szTargetDir
     mkdir(dir)
 
-    // Save file
-    const filePath = dir + '/' + szFilename
-    receivedFile.mv(filePath, (err) => {
-      if (err) {
-        console.error('File mv error:', err)
-        result = false
+    filePath = dir + '/' + szFilename
+    writeStream = fs.createWriteStream(filePath)
+
+    console.log(`[Upload] File stream started: ${szFilename}`)
+
+    file.on('data', (data) => {
+      receivedBytes += data.length
+      dataEventCount++
+      writeStream.write(data)
+
+      // Emit progress every 50ms or on first event
+      const now = Date.now()
+      if (socketId && fileSize && (dataEventCount === 1 || now - lastProgressTime > 50)) {
+        lastProgressTime = now
+        io.to(socketId).emit('upload-progress', {
+          loaded: receivedBytes,
+          total: fileSize
+        })
       }
     })
 
-    res.send({
-      result,
-      szTargetDir,
-      szFilename
+    file.on('end', () => {
+      writeStream.end()
+      // Send final progress
+      if (socketId && fileSize) {
+        io.to(socketId).emit('upload-progress', {
+          loaded: receivedBytes,
+          total: fileSize
+        })
+      }
+      console.log(`Upload finished: ${szFilename} (${receivedBytes} bytes)`)
+    })
+
+    file.on('limit', () => {
+      console.log('File size limit exceeded')
+      writeStream.end()
+      fs.unlinkSync(filePath)
     })
   })
+
+  busboy.on('finish', () => {
+    if (szFilename && szTargetDir) {
+      res.send({
+        result: true,
+        szTargetDir,
+        szFilename
+      })
+    } else {
+      res.status(400).send({ result: false, error: 'No file uploaded' })
+    }
+  })
+
+  busboy.on('error', (err) => {
+    console.error('Busboy error:', err)
+    res.status(500).send({ result: false, error: err.message })
+  })
+
+  req.pipe(busboy)
 })
 
 console.log('Listening...')
