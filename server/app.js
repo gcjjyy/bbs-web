@@ -244,7 +244,7 @@ io.on('connection', function (ioSocket) {
         }
         {
           const pattern =
-            /Bytes Sent:\s*([0-9]+)\/([0-9]+).*BPS:\s*([0-9]+)/gi
+            /Bytes Sent:\s*([0-9]+)\s*\/\s*([0-9]+).*BPS:\s*([0-9]+)/gi
 
           let result = null
           while ((result = pattern.exec(decodedString))) {
