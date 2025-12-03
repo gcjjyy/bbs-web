@@ -321,6 +321,7 @@ function App() {
 
     // Show upload dialog immediately for HTTP upload progress
     szFilename = fileName
+    szTotal = file.size
     setSzDiag(true)
     setSzFinished(false)
     setSzDiagText(`파일 업로드: ${fileName}`)
@@ -338,7 +339,7 @@ function App() {
 
     // Get socket ID for server-side progress tracking
     const socketId = _io?.id || ''
-    const fileSize = file.size
+    const fileSize = szTotal
 
     Axios.post(`upload?socketId=${socketId}&fileSize=${fileSize}`, formData, {
       headers: {
