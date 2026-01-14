@@ -1,0 +1,271 @@
+:root {
+  --o-text: #f8f9fa;
+  --o-text-2: rgba(255, 255, 255, 0.60);
+  --o-text-3: rgba(255, 255, 255, 0.38);
+  --o-text-rgb: 248, 249, 250;
+  --o-bg-body: #0d1117;
+  --o-bg-element: #212529;
+  --o-border: #343a40;
+}
+
+@font-face {
+  font-family: 'IyagiGGC';
+  src: url('https://cdn.jsdelivr.net/gh/JuwanPark/IyagiGGC@latest/IyagiGGC.woff') format('woff');
+  font-weight: normal;
+  font-style: normal;
+}
+
+body {
+  font-family: 'IyagiGGC', monospace !important;
+  font-size: 16px !important;
+  font-weight: normal !important;
+}
+
+body * {
+  font-weight: normal !important;
+}
+
+.command {
+  background-color: rgba(0, 0, 0, 0.0);
+  font-size: 16px;
+  height: 16px;
+  line-height: 16px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  outline: none !important;
+  position: absolute;
+  left: 0;
+  top: 0;
+  color: #ffffff;
+}
+
+.command-password {
+  -webkit-text-security: disc;
+  text-security: disc;
+}
+
+.smart-mouse-box {
+  margin: 0 !important;
+  padding: 0 !important;
+  border-top: 2px solid #ffffff !important;
+  border-left: 2px solid #ffffff !important;
+  border-right: 2px solid #aaaaaa !important;
+  border-bottom: 2px solid #aaaaaa !important;
+  outline: none !important;
+  position: absolute;
+  visibility: hidden;
+}
+
+.o-text {
+  color: var(--o-text);
+}
+.o-text-2 {
+  color: var(--o-text-2);
+}
+.o-text-3 {
+  color: var(--o-text-3);
+}
+.o-bg-body {
+  background: var(--o-bg-body);
+}
+.o-bg-element {
+  background: var(--o-bg-element);
+}
+
+.article {
+  cursor: pointer;
+}
+
+.o-08 {
+  opacity: 0.8 !important;
+}
+
+.article:hover {
+  opacity: 0.8;
+}
+
+$close-color:   var(--o-text);
+
+// Body
+
+$body-bg:       var(--o-bg-body);
+$body-color:    var(--o-text);
+$border-color:  var(--o-border);
+
+
+// Components
+
+$border-radius:               .35rem;
+$border-radius-lg:            .45rem;
+$border-radius-sm:            .3rem;
+
+
+// Navbar
+
+$navbar-light-color:                rgba(var(--o-text-rgb), .5);
+$navbar-light-hover-color:          rgba(var(--o-text-rgb), .7);
+$navbar-light-active-color:         rgba(var(--o-text-rgb), .9);
+$navbar-light-disabled-color:       rgba(var(--o-text-rgb), .3);
+// $navbar-light-toggler-border-color: rgba(var(--o-text), .1);
+.navbar {
+  background: #101020 !important;
+  padding: 0.5rem 1rem;
+  border-bottom: none;
+  font-size: 16px !important;
+}
+
+.navbar * {
+  font-size: 16px !important;
+}
+
+.navbar-brand {
+  letter-spacing: 2px;
+}
+
+.nav-buttons {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.nav-buttons .btn {
+  padding: 0.4rem 0.75rem;
+  border-radius: 4px;
+  border: 1px solid var(--o-border);
+  background: transparent;
+  color: var(--o-text);
+  transition: all 0.2s ease;
+}
+
+.nav-buttons .btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: var(--o-text-2);
+}
+
+
+// Dropdown
+
+$dropdown-color:                    var(--o-text);
+$dropdown-bg:                       var(--o-bg-element);
+$dropdown-border-color:             var(--o-border);
+$dropdown-divider-bg:               var(--o-border);
+
+$dropdown-link-color:               var(--o-text);
+$dropdown-link-hover-color:         var(--o-text);
+$dropdown-link-hover-bg:            var(--o-bg-element);
+
+// $dropdown-link-active-color:        $component-active-color;
+// $dropdown-link-active-bg:           $component-active-bg;
+
+// $dropdown-link-disabled-color:      $gray-600;
+
+// $dropdown-header-color:             $gray-600;
+
+
+// List-group
+
+$list-group-bg:                     var(--o-bg-element);
+$list-group-border-color:           var(--o-border);
+
+// $list-group-hover-bg:               $gray-100 !default;
+// $list-group-active-color:           $component-active-color !default;
+// $list-group-active-bg:              $component-active-bg !default;
+// $list-group-active-border-color:    $list-group-active-bg !default;
+
+// $list-group-disabled-color:         $gray-600 !default;
+// $list-group-disabled-bg:            $list-group-bg !default;
+
+// $list-group-action-color:           $gray-700 !default;
+// $list-group-action-hover-color:     $list-group-action-color !default;
+
+// $list-group-action-active-color:    $body-color !default;
+// $list-group-action-active-bg:       $gray-200 !default;
+
+
+// Forms
+
+$input-bg:                              var(--o-bg-body);
+$input-disabled-bg:                     var(--o-bg-element);
+
+$input-color:                           var(--o-text);
+$input-border-color:                    var(--o-border);
+// $input-border-width:                    $input-btn-border-width !default;
+// $input-box-shadow:                      inset 0 1px 1px rgba($black, .075) !default;
+
+// $input-border-radius:                   $border-radius !default;
+// $input-border-radius-lg:                $border-radius-lg !default;
+// $input-border-radius-sm:                $border-radius-sm !default;
+
+// $input-focus-bg:                        $input-bg !default;
+// $input-focus-border-color:              lighten($component-active-bg, 25%) !default;
+// $input-focus-color:                     $input-color !default;
+// $input-focus-width:                     $input-btn-focus-width !default;
+// $input-focus-box-shadow:                $input-btn-focus-box-shadow !default;
+
+// $input-placeholder-color:               $gray-600 !default;
+// $input-plaintext-color:                 $body-color !default;
+
+// $input-height-border:                   $input-border-width * 2 !default;
+
+// $input-height-inner:                    add($input-line-height * 1em, $input-padding-y * 2) !default;
+// $input-height-inner-half:               add($input-line-height * .5em, $input-padding-y) !default;
+// $input-height-inner-quarter:            add($input-line-height * .25em, $input-padding-y / 2) !default;
+
+// $input-height:                          add($input-line-height * 1em, add($input-padding-y * 2, $input-height-border, false)) !default;
+// $input-height-sm:                       add($input-line-height-sm * 1em, add($input-padding-y-sm * 2, $input-height-border, false)) !default;
+// $input-height-lg:                       add($input-line-height-lg * 1em, add($input-padding-y-lg * 2, $input-height-border, false)) !default;
+
+// $input-transition:                      border-color .15s ease-in-out, box-shadow .15s ease-in-out !default;
+
+// $form-text-margin-top:                  .25rem !default;
+
+// $form-check-input-gutter:               1.25rem !default;
+// $form-check-input-margin-y:             .3rem !default;
+// $form-check-input-margin-x:             .25rem !default;
+
+// $form-check-inline-margin-x:            .75rem !default;
+// $form-check-inline-input-margin-x:      .3125rem !default;
+
+// $form-grid-gutter-width:                10px !default;
+// $form-group-margin-bottom:              1rem !default;
+
+// $input-group-addon-color:               $input-color !default;
+// $input-group-addon-bg:                  $gray-200 !default;
+// $input-group-addon-border-color:        $input-border-color !default;
+
+
+// Cards
+
+$card-border-color:                 var(--o-border);
+$card-cap-bg:                       var(--o-bg-body);
+$card-bg:                           var(--o-bg-element);
+
+
+// Navs
+
+$nav-link-disabled-color:           var(--o-text-3);
+
+$nav-tabs-border-color:             var(--o-border);
+// $nav-tabs-link-hover-border-color:  $gray-200 $gray-200 $nav-tabs-border-color !default;
+$nav-tabs-link-active-color:        var(--o-text);
+// $nav-tabs-link-active-bg:           $body-bg !default;
+$nav-tabs-link-active-border-color: var(--o-border) var(--o-border) transparent;
+
+// $nav-pills-border-radius:           $border-radius !default;
+// $nav-pills-link-active-color:       $component-active-color !default;
+// $nav-pills-link-active-bg:          $component-active-bg !default;
+
+$nav-divider-color:                 var(--o-border);
+
+// Modals
+$modal-content-bg:                  var(--o-bg-element);
+
+
+@import '~bootstrap/scss/bootstrap';
+
+// Modal custom styles
+.modal-content {
+  background: #101020 !important;
+  border: 1px solid var(--o-border);
+}
