@@ -101,6 +101,13 @@ export class ZmodemParser {
   }
 
   /**
+   * Get current data buffer length (for partial progress reporting)
+   */
+  getDataBufferLength(): number {
+    return this.dataBuffer.length
+  }
+
+  /**
    * Get current CRC mode (set by last header type)
    */
   getUseCrc32(): boolean {

@@ -91,6 +91,14 @@ export class ZmodemReceiver {
     }
 
     this.parser.parse(data)
+
+    // Report partial progress during data reception
+    // This provides smoother progress updates, especially over slow networks
+    // where multiple subpackets may arrive bundled together
+    if (this.state === ReceiveState.RECEIVING_DATA && this.fileInfo) {
+      const partialBytes = this.bytesReceived + this.parser.getDataBufferLength()
+      this.callbacks.onProgress?.(partialBytes, this.fileInfo.size)
+    }
   }
 
   /**
