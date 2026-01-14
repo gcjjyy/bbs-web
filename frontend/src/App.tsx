@@ -18,9 +18,13 @@ import {
 import { terminalState, initializeColors } from './hooks/useTerminalState'
 import { handleMouseMove, handleSmartMouseClick, rebuildSmartMouse } from './hooks/useSmartMouse'
 import { write, moveCommandInputPosition } from './hooks/useTerminalEmulation'
-import { setupNetwork, enterCommand, disconnectSocket } from './hooks/useSocketIO'
+import { setupNetwork, enterCommand, disconnectSocket, setDataInterceptor } from './hooks/useSocketIO'
 import useFileTransfer from './hooks/useFileTransfer'
+import useZmodem from './hooks/useZmodem'
 import type { ThemeName } from './themes'
+
+// Configuration: Use browser-side ZMODEM (true) or server-side lrzsz (false)
+const USE_BROWSER_ZMODEM = true
 
 Buffer.from('anything', 'base64')
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -60,8 +64,21 @@ function App() {
     commandRef.current?.focus()
   }
 
-  // File transfer hook
+  // File transfer hook (for server-side ZMODEM fallback)
   const fileTransfer = useFileTransfer(showNotification, focusCommand)
+
+  // Browser-side ZMODEM hook
+  const zmodem = useZmodem(showNotification, focusCommand)
+
+  // Set up ZMODEM data interceptor
+  useEffect(() => {
+    if (USE_BROWSER_ZMODEM) {
+      setDataInterceptor(zmodem.processIncomingData)
+    }
+    return () => {
+      setDataInterceptor(null)
+    }
+  }, [zmodem.processIncomingData])
 
   // Display/theme handling
   const displaySelected = (display: string | null): void => {
@@ -149,7 +166,11 @@ function App() {
   }
 
   const handleFileSelect = (): void => {
-    fileTransfer.setFileSelectDiag(false)
+    if (USE_BROWSER_ZMODEM) {
+      zmodem.closeFileSelectDialog()
+    } else {
+      fileTransfer.setFileSelectDiag(false)
+    }
     if (fileToUploadRef.current) {
       fileToUploadRef.current.value = ''
       fileToUploadRef.current.click()
@@ -157,13 +178,24 @@ function App() {
   }
 
   const handleFileSelectCancel = (): void => {
-    fileTransfer.setFileSelectDiag(false)
-    terminalState.io?.emit('sz-cancel')
+    if (USE_BROWSER_ZMODEM) {
+      zmodem.cancelFileSelect()
+      zmodem.cancelTransfer()
+    } else {
+      fileTransfer.setFileSelectDiag(false)
+      terminalState.io?.emit('sz-cancel')
+    }
   }
 
   const handleFileChange = (e: ChangeEvent<HTMLInputElement>): void => {
     if (e.target.files && e.target.files.length) {
-      fileTransfer.uploadFile(e.target.files[0])
+      if (USE_BROWSER_ZMODEM) {
+        // Use browser-side ZMODEM
+        zmodem.startUpload(Array.from(e.target.files))
+      } else {
+        // Use server-side ZMODEM (legacy)
+        fileTransfer.uploadFile(e.target.files[0])
+      }
     }
   }
 
@@ -178,7 +210,8 @@ function App() {
       commandRef,
       focusCommand,
       setCommandType,
-      fileTransfer.setupFileTransferEvents
+      // Only set up server-side file transfer events if not using browser ZMODEM
+      USE_BROWSER_ZMODEM ? undefined : fileTransfer.setupFileTransferEvents
     )
     window.addEventListener('resize', onResize)
     window.addEventListener('beforeunload', disconnectSocket)
@@ -215,27 +248,30 @@ function App() {
       </div>
 
       <DownloadModal
-        show={fileTransfer.rzDiag}
-        diagText={fileTransfer.rzDiagText}
-        progress={fileTransfer.rzProgress}
-        progressNow={fileTransfer.rzProgressNow}
-        progressLabel={fileTransfer.rzProgressLabel}
-        finished={fileTransfer.rzFinished}
-        url={fileTransfer.rzUrl}
-        onClose={fileTransfer.rzClose}
+        show={USE_BROWSER_ZMODEM ? zmodem.state.rzDiag : fileTransfer.rzDiag}
+        diagText={USE_BROWSER_ZMODEM ? zmodem.state.rzDiagText : fileTransfer.rzDiagText}
+        progress={USE_BROWSER_ZMODEM ? zmodem.state.rzProgress : fileTransfer.rzProgress}
+        progressNow={USE_BROWSER_ZMODEM ? zmodem.state.rzProgressNow : fileTransfer.rzProgressNow}
+        progressLabel={USE_BROWSER_ZMODEM ? zmodem.state.rzProgressLabel : fileTransfer.rzProgressLabel}
+        finished={USE_BROWSER_ZMODEM ? zmodem.state.rzFinished : fileTransfer.rzFinished}
+        url={USE_BROWSER_ZMODEM ? null : fileTransfer.rzUrl}
+        onClose={USE_BROWSER_ZMODEM ? zmodem.closeDownloadDialog : fileTransfer.rzClose}
+        onDownload={USE_BROWSER_ZMODEM ? zmodem.downloadFile : undefined}
+        useBrowserZmodem={USE_BROWSER_ZMODEM}
       />
 
       <UploadModal
-        show={fileTransfer.szDiag}
-        diagText={fileTransfer.szDiagText}
-        uploadProgress={fileTransfer.uploadProgress}
-        uploadProgressNow={fileTransfer.uploadProgressNow}
-        uploadProgressLabel={fileTransfer.uploadProgressLabel}
-        szProgress={fileTransfer.szProgress}
-        szProgressNow={fileTransfer.szProgressNow}
-        szProgressLabel={fileTransfer.szProgressLabel}
-        finished={fileTransfer.szFinished}
-        onClose={fileTransfer.szClose}
+        show={USE_BROWSER_ZMODEM ? zmodem.state.szDiag : fileTransfer.szDiag}
+        diagText={USE_BROWSER_ZMODEM ? zmodem.state.szDiagText : fileTransfer.szDiagText}
+        uploadProgress={USE_BROWSER_ZMODEM ? '' : fileTransfer.uploadProgress}
+        uploadProgressNow={USE_BROWSER_ZMODEM ? 0 : fileTransfer.uploadProgressNow}
+        uploadProgressLabel={USE_BROWSER_ZMODEM ? '' : fileTransfer.uploadProgressLabel}
+        szProgress={USE_BROWSER_ZMODEM ? zmodem.state.szProgress : fileTransfer.szProgress}
+        szProgressNow={USE_BROWSER_ZMODEM ? zmodem.state.szProgressNow : fileTransfer.szProgressNow}
+        szProgressLabel={USE_BROWSER_ZMODEM ? zmodem.state.szProgressLabel : fileTransfer.szProgressLabel}
+        finished={USE_BROWSER_ZMODEM ? zmodem.state.szFinished : fileTransfer.szFinished}
+        onClose={USE_BROWSER_ZMODEM ? zmodem.closeUploadDialog : fileTransfer.szClose}
+        useBrowserZmodem={USE_BROWSER_ZMODEM}
       />
 
       <NotificationModal
@@ -254,7 +290,7 @@ function App() {
       />
 
       <FileSelectModal
-        show={fileTransfer.fileSelectDiag}
+        show={USE_BROWSER_ZMODEM ? zmodem.state.szFileSelectDiag : fileTransfer.fileSelectDiag}
         onSelect={handleFileSelect}
         onCancel={handleFileSelectCancel}
       />

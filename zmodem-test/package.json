@@ -1,0 +1,9 @@
+{
+  "name": "zmodem-test",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "test-send": "bun run test/test-send.ts",
+    "test-receive": "bun run test/test-receive.ts"
+  }
+}

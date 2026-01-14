@@ -1,4 +1,4 @@
-import { useState, useRef, Dispatch, SetStateAction } from 'react'
+import { useState, useRef } from 'react'
 import Axios from 'axios'
 import type { Socket } from 'socket.io-client'
 import { MAX_FILE_SIZE } from '../constants/terminalConfig'

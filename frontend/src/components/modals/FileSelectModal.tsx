@@ -8,7 +8,7 @@ interface FileSelectModalProps {
 
 function FileSelectModal({ show, onSelect, onCancel }: FileSelectModalProps) {
   return (
-    <Modal show={show} size="sm" backdrop="static" centered>
+    <Modal show={show} backdrop="static" centered>
       <Modal.Header>파일 업로드</Modal.Header>
       <Modal.Body className="text-center m-4">
         업로드할 파일을 선택해주세요.

@@ -4,8 +4,9 @@ import express from 'express'
 import { Server } from 'socket.io'
 import Busboy from 'busboy'
 import { v1 as uuidv1 } from 'uuid'
+import Iconv from 'iconv'
 
-import { SERVER_PORT, SERVER_HOST, MAX_FILE_SIZE } from './constants'
+import { SERVER_PORT, SERVER_HOST, MAX_FILE_SIZE, USE_BROWSER_ZMODEM } from './constants'
 import { createTelnetConnection, sendToBBS } from './telnet'
 import { handleBBSData, startSzUpload, cancelSzUpload, getFileCacheDir } from './zmodem'
 import type { ExtendedSocket, UploadResponse } from './types'
@@ -18,6 +19,29 @@ const log = (msg: string) => console.log(`[${timestamp()}] ${msg}`)
 const app = express()
 const staticPath = import.meta.dir + '/../../frontend/build'
 app.use(express.static(staticPath))
+app.use(express.json())
+
+// Filename encoding API for ZMODEM (using native iconv for CP949)
+const utf8ToCp949 = new Iconv.Iconv('UTF-8', 'CP949')
+
+app.post('/api/encode-filename', (req, res) => {
+  const { filename } = req.body
+  if (!filename) {
+    res.status(400).json({ error: 'filename required' })
+    return
+  }
+
+  // macOS uses NFD (decomposed) for filenames, but CP949 needs NFC (composed)
+  const normalizedFilename = filename.normalize('NFC')
+
+  try {
+    const encoded = utf8ToCp949.convert(Buffer.from(normalizedFilename, 'utf8'))
+    res.json({ encoded: Array.from(encoded) })
+  } catch (e) {
+    console.error('[Encode] Error:', e)
+    res.status(500).json({ error: 'encoding failed' })
+  }
+})
 
 // HTTP server and Socket.IO setup
 const httpServer = http.createServer(app)
@@ -43,19 +67,31 @@ io.on('connection', (socket) => {
   })
 
   // Handle data from client (send to BBS)
-  ioSocket.on('data', (data: string | Buffer) => {
-    sendToBBS(ioSocket, data)
+  ioSocket.on('data', (data: string | Buffer | ArrayBuffer) => {
+    // Convert ArrayBuffer to Buffer if needed
+    const bufferData = data instanceof ArrayBuffer ? Buffer.from(data) : data
+    sendToBBS(ioSocket, bufferData)
   })
 
-  // Handle upload start signal from client
-  ioSocket.on('sz-upload', (data: { szFilename: string; szTargetDir: string }) => {
-    startSzUpload(ioSocket, data)
-  })
+  // Browser ZMODEM mode handlers
+  if (USE_BROWSER_ZMODEM) {
+    // Handle ZMODEM session end from browser
+    ioSocket.on('zmodem-end', () => {
+      log('Browser ZMODEM session ended')
+      ioSocket.zmodemActive = false
+    })
+  } else {
+    // Legacy server-side ZMODEM handlers
+    // Handle upload start signal from client
+    ioSocket.on('sz-upload', (data: { szFilename: string; szTargetDir: string }) => {
+      startSzUpload(ioSocket, data)
+    })
 
-  // Handle upload cancel from client
-  ioSocket.on('sz-cancel', () => {
-    cancelSzUpload(ioSocket)
-  })
+    // Handle upload cancel from client
+    ioSocket.on('sz-cancel', () => {
+      cancelSzUpload(ioSocket)
+    })
+  }
 
   // Handle socket errors
   ioSocket.on('error', (error: Error) => {
@@ -162,6 +198,7 @@ app.post('/upload', (req, res) => {
 
 // Start server
 log('Starting server...')
+log(`ZMODEM mode: ${USE_BROWSER_ZMODEM ? 'Browser (pass-through)' : 'Server-side (lrzsz)'}`)
 httpServer.listen(SERVER_PORT, SERVER_HOST, () => {
   log(`Server listening on ${SERVER_HOST}:${SERVER_PORT}`)
 })

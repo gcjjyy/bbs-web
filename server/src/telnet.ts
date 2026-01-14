@@ -59,7 +59,7 @@ export function createTelnetConnection(ioSocket: ExtendedSocket): void {
   ioSocket.tSocket = telnetSocket as unknown as TelnetSocketType
 
   // Generate the decode stream
-  const decodeStream = iconv.decodeStream('euc-kr')
+  const decodeStream = iconv.decodeStream('cp949')
   ioSocket.tSocket.decodeStream = decodeStream as unknown as NodeJS.WritableStream
   decodeStream.on('data', (data: Buffer) => {
     ioSocket.emit('data', Buffer.from(data))
@@ -87,16 +87,36 @@ export function createTelnetConnection(ioSocket: ExtendedSocket): void {
 }
 
 /**
- * Send data to BBS (encode to EUC-KR)
+ * Send data to BBS (encode to EUC-KR for text, raw for binary)
  */
-export function sendToBBS(ioSocket: ExtendedSocket, data: string | Buffer): void {
-  const encoded = iconv.encode(Buffer.from(data).toString(), 'euc-kr')
+export function sendToBBS(ioSocket: ExtendedSocket, data: string | Buffer | Uint8Array): void {
+  // If ZMODEM session is active, send all data raw (no encoding)
+  if (ioSocket.zmodemActive) {
+    const buf = Buffer.from(data instanceof Uint8Array ? data : data as Buffer)
+    ioSocket.tSocket.write(buf)
+    return
+  }
+
+  // Check if this is binary data (Uint8Array or Buffer with binary content)
+  if (data instanceof Uint8Array || Buffer.isBuffer(data)) {
+    // Check for ZMODEM binary markers (ZPAD=0x2a, ZDLE=0x18)
+    const firstByte = data[0]
+    if (firstByte === 0x2a || firstByte === 0x18) {
+      // Binary ZMODEM data - send raw without encoding
+      const buf = Buffer.from(data)
+      ioSocket.tSocket.write(buf)
+      return
+    }
+  }
+
+  // Text data - encode to CP949
+  const encoded = iconv.encode(Buffer.from(data).toString(), 'cp949')
   ioSocket.tSocket.write(encoded)
 }
 
 /**
- * Decode buffer from EUC-KR
+ * Decode buffer from CP949
  */
 export function decodeFromBBS(buffer: Buffer): string {
-  return iconv.decode(buffer, 'euc-kr')
+  return iconv.decode(buffer, 'cp949')
 }

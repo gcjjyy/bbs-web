@@ -11,6 +11,7 @@ interface UploadModalProps {
   szProgressLabel: string
   finished: boolean
   onClose: () => void
+  useBrowserZmodem?: boolean
 }
 
 function UploadModal({
@@ -23,29 +24,32 @@ function UploadModal({
   szProgressNow,
   szProgressLabel,
   finished,
-  onClose
+  onClose,
+  useBrowserZmodem = false
 }: UploadModalProps) {
   return (
-    <Modal show={show} size="sm" backdrop="static" centered>
+    <Modal show={show} backdrop="static" centered>
       <Modal.Header>{diagText}</Modal.Header>
       <Modal.Body className="m-4">
-        <div className="mb-3">
-          <div className="d-flex justify-content-between mb-1">
-            <small>웹 서버로 전송</small>
-            <small>{uploadProgress}</small>
+        {!useBrowserZmodem && (
+          <div className="mb-3">
+            <div className="d-flex justify-content-between mb-1">
+              <small>웹 서버로 전송</small>
+              <small>{uploadProgress}</small>
+            </div>
+            <ProgressBar
+              striped
+              animated
+              now={uploadProgressNow}
+              label={uploadProgressLabel}
+              variant="info"
+              className="progress-striped-bg"
+            />
           </div>
-          <ProgressBar
-            striped
-            animated
-            now={uploadProgressNow}
-            label={uploadProgressLabel}
-            variant="info"
-            className="progress-striped-bg"
-          />
-        </div>
+        )}
         <div>
           <div className="d-flex justify-content-between mb-1">
-            <small>BBS로 전송</small>
+            <small>{useBrowserZmodem ? 'ZMODEM 전송' : 'BBS로 전송'}</small>
             <small>{szProgress}</small>
           </div>
           <ProgressBar

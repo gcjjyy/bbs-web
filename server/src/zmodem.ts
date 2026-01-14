@@ -10,7 +10,8 @@ import {
   RZ_PROGRESS_PATTERN,
   SZ_FILENAME_PATTERN,
   SZ_PROGRESS_PATTERN,
-  ZMODEM_ABORT_PACKET
+  ZMODEM_ABORT_PACKET,
+  USE_BROWSER_ZMODEM
 } from './constants'
 import { preprocessBlockChars } from './telnet'
 import type { ExtendedSocket } from './types'
@@ -27,6 +28,13 @@ export function handleBBSData(
   ioSocket: ExtendedSocket,
   buffer: Buffer
 ): void {
+  // Browser ZMODEM mode: pass through all data directly
+  if (USE_BROWSER_ZMODEM) {
+    handlePassThrough(ioSocket, buffer)
+    return
+  }
+
+  // Legacy server-side ZMODEM mode:
   // If currently in rz (download) mode, pipe data to rz process
   if (ioSocket.rzTransmit && ioSocket.rz) {
     const proc = ioSocket.rz as SpawnedProc
@@ -50,6 +58,65 @@ export function handleBBSData(
 
   // Check for sz (upload) trigger
   checkSzTrigger(ioSocket, buffer)
+
+  // Auto-select Zmodem protocol
+  autoSelectZmodem(ioSocket, buffer)
+}
+
+/**
+ * Pass-through mode for browser ZMODEM
+ * Forwards data between browser and BBS, switching to raw mode during ZMODEM transfers
+ */
+function handlePassThrough(
+  ioSocket: ExtendedSocket,
+  buffer: Buffer
+): void {
+  // If already in ZMODEM mode, send raw data directly to browser
+  if (ioSocket.zmodemActive) {
+    ioSocket.emit('data', buffer)
+
+    // Check for ZMODEM session end (ZFIN followed by OO)
+    // ZFIN hex header pattern: **ZDLE B 08 (type 8 = ZFIN)
+    const bufStr = buffer.toString('latin1')
+    if (bufStr.includes('B08') || bufStr.includes('OO')) {
+      // Potential end of session, but let browser confirm
+      // Check for cancel sequence too
+      let canCount = 0
+      for (let i = 0; i < buffer.length; i++) {
+        if (buffer[i] === 0x18) canCount++
+        else canCount = 0
+        if (canCount >= 5) {
+          console.log('[ZMODEM] Cancel detected, exiting ZMODEM mode')
+          ioSocket.zmodemActive = false
+          break
+        }
+      }
+    }
+    return
+  }
+
+  // Check for ZMODEM start trigger
+  const bufStr = buffer.toString('latin1')
+
+  // Download trigger: ZRQINIT (sender wants to send file to us)
+  if (RZ_DETECT_PATTERN.test(bufStr)) {
+    console.log('[ZMODEM] Download trigger detected, switching to raw mode')
+    ioSocket.zmodemActive = true
+    ioSocket.emit('data', buffer)
+    return
+  }
+
+  // Upload trigger: ZRINIT (receiver ready to receive file from us)
+  if (SZ_DETECT_PATTERN.test(bufStr)) {
+    console.log('[ZMODEM] Upload trigger detected, switching to raw mode')
+    ioSocket.zmodemActive = true
+    ioSocket.emit('data', buffer)
+    return
+  }
+
+  // Normal text data: preprocess block chars and decode
+  const processedBuffer = preprocessBlockChars(buffer)
+  ioSocket.tSocket.decodeStream.write(processedBuffer)
 
   // Auto-select Zmodem protocol
   autoSelectZmodem(ioSocket, buffer)
@@ -102,7 +169,7 @@ function checkRzTrigger(ioSocket: ExtendedSocket, buffer: Buffer): void {
         const { done, value } = await reader.read()
         if (done) break
 
-        const decodedString = iconv.decode(Buffer.from(value), 'euc-kr')
+        const decodedString = iconv.decode(Buffer.from(value), 'cp949')
 
         // Check for filename
         const filenameMatch = RZ_FILENAME_PATTERN.exec(decodedString)
@@ -169,11 +236,11 @@ function checkSzTrigger(ioSocket: ExtendedSocket, buffer: Buffer): void {
  * Auto-select Zmodem protocol when BBS prompts for protocol selection
  */
 function autoSelectZmodem(ioSocket: ExtendedSocket, buffer: Buffer): void {
-  const bufferStr = iconv.decode(buffer, 'euc-kr')
+  const bufferStr = iconv.decode(buffer, 'cp949')
   const result = ZMODEM_PROTOCOL_PROMPT.exec(bufferStr)
 
   if (result) {
-    const encoded = iconv.encode('3\r\n', 'euc-kr')
+    const encoded = iconv.encode('3\r\n', 'cp949')
     ioSocket.tSocket.write(encoded)
   }
 }

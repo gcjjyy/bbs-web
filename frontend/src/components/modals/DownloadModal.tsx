@@ -9,6 +9,8 @@ interface DownloadModalProps {
   finished: boolean
   url: string | null
   onClose: () => void
+  onDownload?: () => void
+  useBrowserZmodem?: boolean
 }
 
 function DownloadModal({
@@ -19,10 +21,18 @@ function DownloadModal({
   progressLabel,
   finished,
   url,
-  onClose
+  onClose,
+  onDownload,
+  useBrowserZmodem = false
 }: DownloadModalProps) {
+  const handleDownloadClick = () => {
+    if (useBrowserZmodem && onDownload) {
+      onDownload()
+    }
+  }
+
   return (
-    <Modal show={show} size="sm" backdrop="static" centered>
+    <Modal show={show} backdrop="static" centered>
       <Modal.Header>{diagText}</Modal.Header>
       <Modal.Body className="text-center m-4">
         {progress}
@@ -30,9 +40,13 @@ function DownloadModal({
       </Modal.Body>
       {finished && (
         <div className="text-center m-3">
-          <a href={url || undefined} download>
-            <Button className="w-50 mr-3">다운로드</Button>
-          </a>
+          {useBrowserZmodem ? (
+            <Button className="w-50 mr-3" onClick={handleDownloadClick}>다운로드</Button>
+          ) : (
+            <a href={url || undefined} download>
+              <Button className="w-50 mr-3">다운로드</Button>
+            </a>
+          )}
           <Button onClick={onClose}>닫기</Button>
         </div>
       )}

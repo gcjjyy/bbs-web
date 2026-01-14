@@ -18,6 +18,9 @@ export interface ExtendedSocket extends Socket {
   netSocket: NetSocket
   tSocket: TelnetSocketType
 
+  // Browser ZMODEM pass-through state
+  zmodemActive?: boolean
+
   // ZMODEM receive (download) state
   rz?: Subprocess
   rzTransmit?: boolean

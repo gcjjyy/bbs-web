@@ -11,6 +11,11 @@ export const SERVER_HOST = '0.0.0.0'
 // File upload limits
 export const MAX_FILE_SIZE = 512 * 1024 * 1024 // 512MB
 
+// ZMODEM mode configuration
+// When true, server passes through ZMODEM data and browser handles protocol
+// When false, server spawns rz/sz processes to handle ZMODEM (legacy mode)
+export const USE_BROWSER_ZMODEM = true
+
 // Telnet protocol options
 export const ECHO = 1
 export const TERMINAL_TYPE = 24

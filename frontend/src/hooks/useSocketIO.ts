@@ -6,13 +6,23 @@ import type { RefObject, Dispatch, SetStateAction } from 'react'
 
 const debug = require('debug')('bbs-web')
 
+// Data interceptor type - returns true if data was consumed
+export type DataInterceptor = (data: ArrayBuffer) => boolean
+
+// Store the data interceptor for dynamic updates
+let dataInterceptor: DataInterceptor | null = null
+
+export const setDataInterceptor = (interceptor: DataInterceptor | null): void => {
+  dataInterceptor = interceptor
+}
+
 export const setupNetwork = (
   terminalRef: RefObject<HTMLCanvasElement | null>,
   smartMouseBoxRef: RefObject<HTMLDivElement | null>,
   commandRef: RefObject<HTMLInputElement | null>,
   focusCommand: () => void,
   setCommandType: Dispatch<SetStateAction<string>>,
-  setupFileTransferEvents: (io: Socket) => void
+  setupFileTransferEvents?: (io: Socket) => void
 ): void => {
   const host = window.location.href
 
@@ -44,6 +54,12 @@ export const setupNetwork = (
   })
 
   terminalState.io.on('data', (data: ArrayBuffer) => {
+    // Try data interceptor first (for ZMODEM)
+    if (dataInterceptor && dataInterceptor(data)) {
+      // Data was consumed by interceptor
+      return
+    }
+
     // Check if the password input phrase
     const pattern = /비밀번호 :/
     const result = pattern.exec(Buffer.from(data).toString())
@@ -55,8 +71,10 @@ export const setupNetwork = (
     write(Buffer.from(data).toString(), terminalRef, smartMouseBoxRef, commandRef)
   })
 
-  // Setup file transfer events
-  setupFileTransferEvents(terminalState.io)
+  // Setup file transfer events (optional, for legacy server-side ZMODEM)
+  if (setupFileTransferEvents) {
+    setupFileTransferEvents(terminalState.io)
+  }
 }
 
 export const enterCommand = (
