@@ -27,10 +27,8 @@ export const setupNetwork = (
 
   debug('Start connecting...')
   terminalState.io = io(host, {
-    // Use WebSocket for better performance and real-time progress updates
-    transports: ['websocket'],
-    // Upgrade from polling if websocket fails
-    upgrade: true
+    // Prefer WebSocket for better performance, fallback to polling if blocked by proxy
+    transports: ['websocket', 'polling']
   })
 
   terminalState.io.on('connect', () => {

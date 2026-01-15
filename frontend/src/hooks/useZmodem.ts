@@ -365,6 +365,10 @@ export function useZmodem(
     setRzFileData(null)
     setRzFileName(null)
     receiverRef.current = null
+    // Send enter to refresh terminal screen
+    if (terminalState.io) {
+      terminalState.io.emit('data', '\r\n')
+    }
     focusCommand()
   }, [focusCommand])
 
@@ -411,6 +415,10 @@ export function useZmodem(
       a.click()
       document.body.removeChild(a)
       URL.revokeObjectURL(url)
+      // Send enter to refresh terminal screen
+      if (terminalState.io) {
+        terminalState.io.emit('data', '\r\n')
+      }
     }
   }, [rzFileData, rzFileName])
 
