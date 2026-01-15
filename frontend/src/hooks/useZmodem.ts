@@ -226,7 +226,7 @@ export function useZmodem(
     // Check for ZMODEM patterns
     const textData = new TextDecoder('latin1').decode(bytes)
 
-    // Check for download trigger (rz - sender wants to send file)
+    // Check for download trigger (remote wants to send file)
     if (RZ_DETECT_PATTERN.test(textData)) {
       console.log('[ZMODEM] Download trigger detected')
 
@@ -252,7 +252,7 @@ export function useZmodem(
       return true
     }
 
-    // Check for upload trigger (sz - receiver ready to receive)
+    // Check for upload trigger (remote ready to receive)
     if (SZ_DETECT_PATTERN.test(textData)) {
       console.log('[ZMODEM] Upload trigger detected')
       // Store the initial ZRINIT data to feed to sender later

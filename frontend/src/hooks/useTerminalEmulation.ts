@@ -455,7 +455,7 @@ export const write = (
         case 0: // NULL
         case 24: // ZDLE
         case 17: // XON
-        case 138: // LF of sz
+        case 138: // LF (ZMODEM)
         case 65533: // Unknown
           break
 

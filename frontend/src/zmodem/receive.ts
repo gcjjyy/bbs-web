@@ -1,5 +1,5 @@
 /**
- * ZMODEM Receive (rz) Implementation
+ * ZMODEM Receive Implementation
  */
 
 import {
@@ -253,7 +253,7 @@ export class ZmodemReceiver {
       // Request data from position 0
       this.sendZRPOS(0)
     } else if (this.state === ReceiveState.WAIT_ZDATA && this.fileInfo) {
-      // Duplicate file info (sz retrying), just reset parser and ignore
+      // Duplicate file info (sender retrying), just reset parser and ignore
       this.log('Ignoring duplicate file info')
       this.parser.reset()
     } else if (this.state === ReceiveState.RECEIVING_DATA) {

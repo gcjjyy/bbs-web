@@ -1,5 +1,5 @@
 /**
- * ZMODEM Send (sz) Implementation
+ * ZMODEM Send Implementation
  */
 
 import {
