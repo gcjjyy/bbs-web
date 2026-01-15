@@ -1,4 +1,4 @@
-import io, { Socket } from 'socket.io-client'
+import io from 'socket.io-client'
 import { Buffer } from 'buffer'
 import { terminalState } from './useTerminalState'
 import { write } from './useTerminalEmulation'
@@ -21,13 +21,17 @@ export const setupNetwork = (
   smartMouseBoxRef: RefObject<HTMLDivElement | null>,
   commandRef: RefObject<HTMLInputElement | null>,
   focusCommand: () => void,
-  setCommandType: Dispatch<SetStateAction<string>>,
-  setupFileTransferEvents?: (io: Socket) => void
+  setCommandType: Dispatch<SetStateAction<string>>
 ): void => {
   const host = window.location.href
 
   debug('Start connecting...')
-  terminalState.io = io(host)
+  terminalState.io = io(host, {
+    // Use WebSocket for better performance and real-time progress updates
+    transports: ['websocket'],
+    // Upgrade from polling if websocket fails
+    upgrade: true
+  })
 
   terminalState.io.on('connect', () => {
     debug('Connected')
@@ -71,10 +75,6 @@ export const setupNetwork = (
     write(Buffer.from(data).toString(), terminalRef, smartMouseBoxRef, commandRef)
   })
 
-  // Setup file transfer events (optional, for legacy server-side ZMODEM)
-  if (setupFileTransferEvents) {
-    setupFileTransferEvents(terminalState.io)
-  }
 }
 
 export const enterCommand = (

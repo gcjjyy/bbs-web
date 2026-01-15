@@ -6,9 +6,9 @@ import Busboy from 'busboy'
 import { v1 as uuidv1 } from 'uuid'
 import Iconv from 'iconv'
 
-import { SERVER_PORT, SERVER_HOST, MAX_FILE_SIZE, USE_BROWSER_ZMODEM } from './constants'
+import { SERVER_PORT, SERVER_HOST, MAX_FILE_SIZE } from './constants'
 import { createTelnetConnection, sendToBBS } from './telnet'
-import { handleBBSData, startSzUpload, cancelSzUpload, getFileCacheDir } from './zmodem'
+import { handleBBSData, getFileCacheDir } from './zmodem'
 import type { ExtendedSocket, UploadResponse } from './types'
 
 // Timestamp logger
@@ -48,7 +48,11 @@ const httpServer = http.createServer(app)
 const io = new Server(httpServer, {
   cors: {
     origin: '*'
-  }
+  },
+  // Force WebSocket transport for better performance and real-time progress
+  transports: ['websocket', 'polling'],
+  // Allow upgrade from polling to websocket
+  allowUpgrades: true
 })
 
 const fileCacheDir = getFileCacheDir()
@@ -73,25 +77,11 @@ io.on('connection', (socket) => {
     sendToBBS(ioSocket, bufferData)
   })
 
-  // Browser ZMODEM mode handlers
-  if (USE_BROWSER_ZMODEM) {
-    // Handle ZMODEM session end from browser
-    ioSocket.on('zmodem-end', () => {
-      log('Browser ZMODEM session ended')
-      ioSocket.zmodemActive = false
-    })
-  } else {
-    // Legacy server-side ZMODEM handlers
-    // Handle upload start signal from client
-    ioSocket.on('sz-upload', (data: { szFilename: string; szTargetDir: string }) => {
-      startSzUpload(ioSocket, data)
-    })
-
-    // Handle upload cancel from client
-    ioSocket.on('sz-cancel', () => {
-      cancelSzUpload(ioSocket)
-    })
-  }
+  // Handle ZMODEM session end from browser
+  ioSocket.on('zmodem-end', () => {
+    log('Browser ZMODEM session ended')
+    ioSocket.zmodemActive = false
+  })
 
   // Handle socket errors
   ioSocket.on('error', (error: Error) => {
@@ -198,7 +188,6 @@ app.post('/upload', (req, res) => {
 
 // Start server
 log('Starting server...')
-log(`ZMODEM mode: ${USE_BROWSER_ZMODEM ? 'Browser (pass-through)' : 'Server-side (lrzsz)'}`)
 httpServer.listen(SERVER_PORT, SERVER_HOST, () => {
   log(`Server listening on ${SERVER_HOST}:${SERVER_PORT}`)
 })

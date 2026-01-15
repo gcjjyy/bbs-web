@@ -1,6 +1,5 @@
 import type { Socket } from 'socket.io'
 import type { Socket as NetSocket } from 'net'
-import type { Subprocess } from 'bun'
 
 // TelnetSocket type (telnet-stream doesn't have proper types)
 export interface TelnetSocketType {
@@ -20,32 +19,12 @@ export interface ExtendedSocket extends Socket {
 
   // Browser ZMODEM pass-through state
   zmodemActive?: boolean
-
-  // ZMODEM receive (download) state
-  rz?: Subprocess
-  rzTransmit?: boolean
-  rzFilename?: string
-  rzTargetDir?: string
-
-  // ZMODEM send (upload) state
-  sz?: Subprocess
-  szTransmit?: boolean
-  szWaiting?: boolean
-  szTargetDir?: string
 }
 
 // EUC-KR block character replacement mapping
 export interface BlockReplacement {
   from: [number, number]
   escCode: string
-}
-
-// ZMODEM progress data
-export interface ZmodemProgress {
-  received?: number
-  sent?: number
-  total: number
-  bps: number
 }
 
 // Upload response
