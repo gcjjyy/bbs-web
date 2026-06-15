@@ -10,7 +10,7 @@ export const terminalState: TerminalState = {
   ctx2d: null,
   rate: 1.0,
   selectedDisplay: 'VGA',
-  selectedFont: 'IyagiGGC',
+  selectedFont: 'NeoDunggeunmo',
   escape: null,
   cursor: { x: 0, y: 0 },
   cursorStore: { x: 0, y: 0 },

@@ -5,7 +5,11 @@ import cookies from 'browser-cookies'
 import copy from 'copy-to-clipboard'
 import { useEffect, useRef, useState, ChangeEvent } from 'react'
 import LoadingModal from './LoadingModal'
-import { DISPLAYS, DEFAULT_FONT } from './constants/terminalConfig'
+import {
+  BOX_DRAWING_FONT,
+  DEFAULT_FONT,
+  DISPLAYS
+} from './constants/terminalConfig'
 import Navigation from './components/Navigation'
 import TerminalCanvas from './components/TerminalCanvas'
 import {
@@ -20,6 +24,7 @@ import { write, moveCommandInputPosition } from './hooks/useTerminalEmulation'
 import { setupNetwork, enterCommand, disconnectSocket, setDataInterceptor } from './hooks/useSocketIO'
 import useZmodem from './hooks/useZmodem'
 import type { ThemeName } from './themes'
+import { getTerminalCanvasFont } from './utils/terminalFont'
 
 Buffer.from('anything', 'base64')
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -81,7 +86,7 @@ function App() {
   const displayChanged = (isInitial: boolean = false): void => {
     initializeColors(terminalState.selectedDisplay as ThemeName)
     if (terminalState.ctx2d) {
-      terminalState.ctx2d.font = `normal 16px ${DEFAULT_FONT}`
+      terminalState.ctx2d.font = getTerminalCanvasFont(DEFAULT_FONT)
     }
     focusCommand()
     cookies.set('display', terminalState.selectedDisplay, { expires: 365 })
@@ -104,6 +109,8 @@ function App() {
 
   const setupTerminal = (): void => {
     terminalState.selectedDisplay = cookies.get('display') ?? 'VGA'
+    document.fonts?.load(getTerminalCanvasFont(DEFAULT_FONT))
+    document.fonts?.load(getTerminalCanvasFont(BOX_DRAWING_FONT))
 
     // Validate display value
     if (!DISPLAYS.includes(terminalState.selectedDisplay)) {
@@ -115,7 +122,7 @@ function App() {
       if (terminalState.ctx2d) {
         initializeColors(terminalState.selectedDisplay as ThemeName)
         terminalState.ctx2d.fillStyle = terminalState.COLOR[terminalState.attr.textColor]
-        terminalState.ctx2d.font = `normal 16px ${DEFAULT_FONT}`
+        terminalState.ctx2d.font = getTerminalCanvasFont(DEFAULT_FONT)
         terminalState.ctx2d.textBaseline = 'top'
       } else {
         showNotification('초기화 오류', 'Canvas Context2D를 생성할 수 없습니다.')

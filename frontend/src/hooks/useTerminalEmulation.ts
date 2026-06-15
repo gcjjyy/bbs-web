@@ -1,5 +1,6 @@
 import {
   CANVAS_WIDTH,
+  DEFAULT_FONT,
   FONT_WIDTH,
   FONT_HEIGHT,
   SCREEN_HEIGHT
@@ -7,6 +8,10 @@ import {
 import { terminalState } from './useTerminalState'
 import { rebuildSmartMouse } from './useSmartMouse'
 import type { RefObject } from 'react'
+import {
+  getTerminalCanvasFont,
+  getTerminalFontForChar
+} from '../utils/terminalFont'
 
 // Apply ANSI escape sequence
 const applyEscape = (terminalRef: RefObject<HTMLCanvasElement | null>): void => {
@@ -477,7 +482,19 @@ export const write = (
             ctx2d.fillStyle = backgroundColor
             ctx2d.fillRect(cursor_px.x, cursor_px.y, charWidth * FONT_WIDTH, FONT_HEIGHT)
             ctx2d.fillStyle = textColor
+            const fontFamily = getTerminalFontForChar(ch)
+            const shouldOverrideFont = fontFamily !== DEFAULT_FONT
+            const previousFont = ctx2d.font
+
+            if (shouldOverrideFont) {
+              ctx2d.font = getTerminalCanvasFont(fontFamily)
+            }
+
             ctx2d.fillText(ch, cursor_px.x, cursor_px.y)
+
+            if (shouldOverrideFont) {
+              ctx2d.font = previousFont
+            }
 
             cursor.x += charWidth
           }

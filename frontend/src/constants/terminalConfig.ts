@@ -14,7 +14,8 @@ export const SMART_MOUSE_BORDER: number = 2
 export const DISPLAYS: readonly string[] = ['VGA', 'ACI', 'HERCULES'] as const
 
 // Default selected font
-export const DEFAULT_FONT: string = 'IyagiGGC'
+export const DEFAULT_FONT: string = 'NeoDunggeunmo'
+export const BOX_DRAWING_FONT: string = 'IyagiGGC'
 
 // Maximum file size for upload (512MB)
 export const MAX_FILE_SIZE: number = 512 * 1024 * 1024

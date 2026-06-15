@@ -9,14 +9,25 @@
 }
 
 @font-face {
+  font-family: 'NeoDunggeunmo';
+  src:
+    url('https://cdn.jsdelivr.net/gh/neodgm/neodgm-webfont@1.601/neodgm/neodgm.woff2') format('woff2'),
+    url('https://cdn.jsdelivr.net/gh/neodgm/neodgm-webfont@1.601/neodgm/neodgm.woff') format('woff');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
   font-family: 'IyagiGGC';
   src: url('https://cdn.jsdelivr.net/gh/JuwanPark/IyagiGGC@latest/IyagiGGC.woff') format('woff');
   font-weight: normal;
   font-style: normal;
+  font-display: swap;
 }
 
 body {
-  font-family: 'IyagiGGC', monospace !important;
+  font-family: 'NeoDunggeunmo', monospace !important;
   font-size: 16px !important;
   font-weight: normal !important;
 }
