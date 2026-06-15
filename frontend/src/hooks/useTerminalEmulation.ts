@@ -4,12 +4,23 @@ import {
   FONT_HEIGHT,
   SCREEN_HEIGHT
 } from '../constants/terminalConfig'
-import { terminalState } from './useTerminalState'
+import {
+  appendTerminalHistory,
+  setTerminalHistory,
+  terminalState
+} from './useTerminalState'
 import { rebuildSmartMouse } from './useSmartMouse'
 import type { RefObject } from 'react'
 
 // Apply ANSI escape sequence
-const applyEscape = (terminalRef: RefObject<HTMLCanvasElement | null>): void => {
+interface WriteOptions {
+  recordHistory?: boolean
+}
+
+const applyEscape = (
+  terminalRef: RefObject<HTMLCanvasElement | null>,
+  recordHistory: boolean
+): void => {
   const { ctx2d, cursor, cursorStore, attr, escape, COLOR } = terminalState
 
   if (!ctx2d || !escape) return
@@ -300,14 +311,15 @@ const applyEscape = (terminalRef: RefObject<HTMLCanvasElement | null>): void => 
         // Clear whole webpage
         document.getElementsByTagName('body')[0].style.backgroundColor = COLOR[attr.backgroundColor]
 
-        // Refresh lastPageText
-        terminalState.lastPageText = '\x1b[2J'
-        terminalState.lastPageTextPos = [
-          { x: 0, y: 0 },
-          { x: 0, y: 0 },
-          { x: 0, y: 0 },
-          { x: 0, y: 0 }
-        ]
+        if (recordHistory) {
+          // Keep the redraw buffer anchored at the last full-screen clear.
+          setTerminalHistory('\x1b[2J', [
+            { x: 0, y: 0 },
+            { x: 0, y: 0 },
+            { x: 0, y: 0 },
+            { x: 0, y: 0 }
+          ])
+        }
         cursor.x = 0
         cursor.y = 0
       } else if (param1 === 0) {
@@ -343,7 +355,7 @@ const applyEscape = (terminalRef: RefObject<HTMLCanvasElement | null>): void => 
     if (terminalRef.current) {
       if (escape.endsWith('[2K')) {
         ctx2d.fillStyle = COLOR[attr.backgroundColor]
-        ctx2d.fillRect(0, cursor.y * FONT_HEIGHT, terminalRef.current.clientWidth, FONT_HEIGHT)
+        ctx2d.fillRect(0, cursor.y * FONT_HEIGHT, terminalRef.current.width, FONT_HEIGHT)
       } else if (escape.endsWith('[1K')) {
         ctx2d.fillStyle = COLOR[attr.backgroundColor]
         ctx2d.fillRect(0, cursor.y * FONT_HEIGHT, (cursor.x + 1) * FONT_WIDTH, FONT_HEIGHT)
@@ -352,7 +364,7 @@ const applyEscape = (terminalRef: RefObject<HTMLCanvasElement | null>): void => 
         ctx2d.fillRect(
           cursor.x * FONT_WIDTH,
           cursor.y * FONT_HEIGHT,
-          terminalRef.current.clientWidth - cursor.x * FONT_WIDTH,
+          terminalRef.current.width - cursor.x * FONT_WIDTH,
           FONT_HEIGHT
         )
       }
@@ -422,20 +434,23 @@ export const write = (
   text: string,
   terminalRef: RefObject<HTMLCanvasElement | null>,
   smartMouseBoxRef: RefObject<HTMLDivElement | null>,
-  commandRef: RefObject<HTMLInputElement | null>
+  commandRef: RefObject<HTMLInputElement | null>,
+  options: WriteOptions = {}
 ): void => {
   const { ctx2d, cursor, attr, COLOR } = terminalState
+  const recordHistory = options.recordHistory ?? true
 
   if (!ctx2d) return
 
   for (const ch of text) {
-    terminalState.lastPageText += ch
-    terminalState.lastPageTextPos.push({ x: cursor.x, y: cursor.y })
+    if (recordHistory) {
+      appendTerminalHistory(ch, { x: cursor.x, y: cursor.y })
+    }
 
     if (terminalState.escape) {
       terminalState.escape = terminalState.escape + ch
       if (endOfEscape()) {
-        applyEscape(terminalRef)
+        applyEscape(terminalRef, recordHistory)
         terminalState.escape = null
       }
     } else {
@@ -491,6 +506,36 @@ export const write = (
 
   // Move the command textfield to the cursor position
   moveCommandInputPosition(terminalRef, commandRef)
+}
+
+export const replayTerminalHistory = (
+  terminalRef: RefObject<HTMLCanvasElement | null>,
+  smartMouseBoxRef: RefObject<HTMLDivElement | null>,
+  commandRef: RefObject<HTMLInputElement | null>
+): void => {
+  const history = terminalState.lastPageText
+
+  terminalState.escape = null
+  terminalState.cursor = { x: 0, y: 0 }
+  terminalState.cursorStore = { x: 0, y: 0 }
+  terminalState.attr = { textColor: 15, backgroundColor: 1, reversed: false }
+  terminalState.windowTop = 0
+  terminalState.windowBottom = SCREEN_HEIGHT - 1
+
+  if (terminalState.ctx2d && terminalRef.current) {
+    terminalState.ctx2d.fillStyle =
+      terminalState.COLOR[terminalState.attr.backgroundColor]
+    terminalState.ctx2d.fillRect(
+      0,
+      0,
+      terminalRef.current.width,
+      terminalRef.current.height
+    )
+  }
+
+  write(history, terminalRef, smartMouseBoxRef, commandRef, {
+    recordHistory: false
+  })
 }
 
 export const moveCommandInputPosition = (

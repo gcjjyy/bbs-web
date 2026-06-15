@@ -16,7 +16,10 @@ import {
 } from './components/modals'
 import { terminalState, initializeColors } from './hooks/useTerminalState'
 import { handleMouseMove, handleSmartMouseClick, rebuildSmartMouse } from './hooks/useSmartMouse'
-import { write, moveCommandInputPosition } from './hooks/useTerminalEmulation'
+import {
+  moveCommandInputPosition,
+  replayTerminalHistory
+} from './hooks/useTerminalEmulation'
 import { setupNetwork, enterCommand, disconnectSocket, setDataInterceptor } from './hooks/useSocketIO'
 import useZmodem from './hooks/useZmodem'
 import type { ThemeName } from './themes'
@@ -95,7 +98,7 @@ function App() {
           terminalRef.current.style.backgroundColor =
             terminalState.COLOR[terminalState.attr.backgroundColor]
         }
-        write(terminalState.lastPageText, terminalRef, smartMouseBoxRef, commandRef)
+        replayTerminalHistory(terminalRef, smartMouseBoxRef, commandRef)
         setApplyDiag(false)
         focusCommand()
       }, 4000)
@@ -190,6 +193,8 @@ function App() {
     window.addEventListener('beforeunload', disconnectSocket)
 
     return () => {
+      setDataInterceptor(null)
+      disconnectSocket()
       window.removeEventListener('resize', onResize)
       window.removeEventListener('beforeunload', disconnectSocket)
     }
