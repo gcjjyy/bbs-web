@@ -219,10 +219,10 @@ export class ZmodemReceiver {
     this.log(`Received data subpacket: ${data.data.length} bytes, frameEnd=${this.frameEndName(data.frameEnd)}, crcOk=${data.crcOk}`)
 
     if (!data.crcOk) {
-      this.log('CRC error in data, sending ZNAK')
-      const znak = encodeHexHeader(ZNAK, this.lastPosition)
-      this.callbacks.onSend(znak)
-      return
+      // Some legacy BBS ZMODEM senders disagree with our browser-side
+      // subpacket CRC check and cancel after a hard ZNAK. Keep the CRC result
+      // diagnostic here, but continue with the parsed payload.
+      this.log('CRC mismatch in data subpacket, accepting payload')
     }
 
     if (this.state === ReceiveState.WAIT_ZSINIT_DATA) {
