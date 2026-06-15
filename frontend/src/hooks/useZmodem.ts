@@ -137,6 +137,7 @@ export function useZmodem(
 
       onSessionComplete: () => {
         console.log('[ZMODEM] Session complete')
+        receiverRef.current = null
         setIsActive(false)
         setMode('idle')
         // Notify server that ZMODEM session ended
@@ -147,6 +148,7 @@ export function useZmodem(
 
       onError: (error: string) => {
         console.error('[ZMODEM] Error:', error)
+        receiverRef.current = null
         showNotification('ZMODEM 오류', error)
         setIsActive(false)
         setMode('idle')
@@ -183,6 +185,7 @@ export function useZmodem(
 
       onSessionComplete: () => {
         console.log('[ZMODEM] Send session complete')
+        senderRef.current = null
         setSzFinished(true)
         setSzDiagText('업로드 완료!')
         setIsActive(false)
@@ -195,6 +198,7 @@ export function useZmodem(
 
       onError: (error: string) => {
         console.error('[ZMODEM] Send error:', error)
+        senderRef.current = null
         showNotification('ZMODEM 오류', error)
         setIsActive(false)
         setMode('idle')

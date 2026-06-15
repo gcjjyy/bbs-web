@@ -429,9 +429,7 @@ export class ZmodemParser {
   private emitDataSubpacket(): void {
     const data = new Uint8Array(this.dataBuffer)
     const frameEnd = this.pendingFrameEnd
-
-    // TODO: Verify CRC
-    // For now, just assume CRC is OK
+    const crcOk = this.verifyDataCrc(data, frameEnd)
 
     // Clear buffers BEFORE callback
     this.dataBuffer = []
@@ -452,8 +450,32 @@ export class ZmodemParser {
     this.callback.onData?.({
       data,
       frameEnd,
-      crcOk: true
+      crcOk
     })
+  }
+
+  /**
+   * Verify data subpacket CRC against collected CRC bytes.
+   */
+  private verifyDataCrc(data: Uint8Array, frameEnd: number): boolean {
+    if (this.useCrc32) {
+      const receivedCrc = (
+        this.crcBuffer[0] |
+        (this.crcBuffer[1] << 8) |
+        (this.crcBuffer[2] << 16) |
+        (this.crcBuffer[3] << 24)
+      ) >>> 0
+      let calculatedCrc = crc32(data)
+      calculatedCrc = crc32Update(calculatedCrc, frameEnd)
+      calculatedCrc = crc32Finish(calculatedCrc)
+      return receivedCrc === calculatedCrc
+    }
+
+    const receivedCrc = (this.crcBuffer[0] << 8) | this.crcBuffer[1]
+    let calculatedCrc = crc16(data)
+    calculatedCrc = crc16Update(calculatedCrc, frameEnd)
+    calculatedCrc = crc16Finish(calculatedCrc)
+    return receivedCrc === calculatedCrc
   }
 }
 
