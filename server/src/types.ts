@@ -14,29 +14,16 @@ export interface TelnetSocketType {
 // Extended Socket.IO socket with BBS-specific properties
 export interface ExtendedSocket extends Socket {
   // Network connections
-  netSocket: NetSocket
-  tSocket: TelnetSocketType
+  netSocket?: NetSocket
+  tSocket?: TelnetSocketType
 
   // Browser ZMODEM pass-through state
   zmodemActive?: boolean
+  bbsDisconnected?: boolean
 }
 
 // EUC-KR block character replacement mapping
 export interface BlockReplacement {
   from: [number, number]
   escCode: string
-}
-
-// Upload response
-export interface UploadResponse {
-  result: boolean
-  szTargetDir?: string
-  szFilename?: string
-  error?: string
-}
-
-// Upload progress event data
-export interface UploadProgressData {
-  loaded: number
-  total: number
 }

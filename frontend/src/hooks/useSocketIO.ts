@@ -25,6 +25,8 @@ export const setupNetwork = (
 ): void => {
   const host = window.location.href
 
+  disconnectSocket()
+
   debug('Start connecting...')
   terminalState.io = io(host, {
     // Prefer WebSocket for better performance, fallback to polling if blocked by proxy
@@ -88,5 +90,9 @@ export const enterCommand = (
 }
 
 export const disconnectSocket = (): void => {
-  terminalState.io?.disconnect()
+  if (!terminalState.io) return
+
+  terminalState.io.removeAllListeners()
+  terminalState.io.disconnect()
+  terminalState.io = null
 }

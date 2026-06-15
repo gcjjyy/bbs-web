@@ -16,12 +16,15 @@ const SMART_MOUSE_PATTERNS: SmartMousePattern[] = [
   { pattern: /,([a-z]+)\)/gi, captureOnly: true }, // ,x)
   { pattern: /\(([a-z]+)\)/gi, captureOnly: true }, // (x)
   { pattern: /\[([a-z0-9]+)\]/gi, captureOnly: true }, // [x]
-  { pattern: /(https?:\/\/[a-z0-9-\.\/?&_=#]+)/gi, captureOnly: false }, // URL
+  { pattern: /(https?:\/\/[a-z0-9./?&_=#-]+)/gi, captureOnly: false }, // URL
   { pattern: /([0-9]+) +.+ +[0-9-]+ +[0-9]+ + [0-9]+ +.*/gi, captureOnly: false }, // Article
-  { pattern: /([0-9]+) +[0-9\.]+ .*/gi, captureOnly: false }, // News (JTBC)
+  { pattern: /([0-9]+) +[0-9.]+ .*/gi, captureOnly: false }, // News (JTBC)
   { pattern: /([0-9]+) +.+ +[0-9-]+ .*/gi, captureOnly: false }, // News (Oh my news, IT news)
   { pattern: /([0-9]+) +(JTBC|오마이뉴스|전자신문|속보|정치|연예|전체기사|주요기사|사회|오늘의 뉴스|게임)/gi, captureOnly: false } // News Titles
 ]
+
+export const stripAnsiColorCodes = (text: string): string =>
+  text.replace(new RegExp(String.raw`\x1b\[=.{1,3}[FG]`, 'gi'), '').trim()
 
 export const rebuildSmartMouse = (smartMouseBoxRef: RefObject<HTMLDivElement | null>): void => {
   terminalState.smartMouse = []
@@ -33,8 +36,8 @@ export const rebuildSmartMouse = (smartMouseBoxRef: RefObject<HTMLDivElement | n
     let result: RegExpExecArray | null = null
     while ((result = pattern.exec(terminalState.lastPageText))) {
       // Remove ANSI escape code
-      const fullMatch = result[0].replace(/\x1b\[=.{1,3}[FG]{1}/gi, '').trim()
-      const command = result[1].replace(/\x1b\[=.{1,3}[FG]{1}/gi, '').trim()
+      const fullMatch = stripAnsiColorCodes(result[0])
+      const command = stripAnsiColorCodes(result[1])
 
       let linkX: number
       let linkWidth: number

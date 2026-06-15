@@ -8,8 +8,6 @@ import { preprocessBlockChars } from './telnet'
 import type { ExtendedSocket } from './types'
 import * as iconv from 'iconv-lite'
 
-const fileCacheDir = import.meta.dir + '/../../frontend/build/file-cache/'
-
 /**
  * Handle incoming data from BBS - browser ZMODEM pass-through mode
  * Forwards data between browser and BBS, switching to raw mode during ZMODEM transfers
@@ -26,21 +24,14 @@ export function handleBBSData(
       ioSocket.emit('data', chunk)
     }
 
-    // Check for ZMODEM session end (ZFIN followed by OO)
-    // ZFIN hex header pattern: **ZDLE B 08 (type 8 = ZFIN)
-    const bufStr = buffer.toString('latin1')
-    if (bufStr.includes('B08') || bufStr.includes('OO')) {
-      // Potential end of session, but let browser confirm
-      // Check for cancel sequence too
-      let canCount = 0
-      for (let i = 0; i < buffer.length; i++) {
-        if (buffer[i] === 0x18) canCount++
-        else canCount = 0
-        if (canCount >= 5) {
-          console.log('[ZMODEM] Cancel detected, exiting ZMODEM mode')
-          ioSocket.zmodemActive = false
-          break
-        }
+    let canCount = 0
+    for (let i = 0; i < buffer.length; i++) {
+      if (buffer[i] === 0x18) canCount++
+      else canCount = 0
+      if (canCount >= 5) {
+        console.log('[ZMODEM] Cancel detected, exiting ZMODEM mode')
+        ioSocket.zmodemActive = false
+        break
       }
     }
     return
@@ -67,7 +58,7 @@ export function handleBBSData(
 
   // Normal text data: preprocess block chars and decode
   const processedBuffer = preprocessBlockChars(buffer)
-  ioSocket.tSocket.decodeStream.write(processedBuffer)
+  ioSocket.tSocket?.decodeStream.write(processedBuffer)
 
   // Auto-select Zmodem protocol
   autoSelectZmodem(ioSocket, buffer)
@@ -77,6 +68,10 @@ export function handleBBSData(
  * Auto-select Zmodem protocol when BBS prompts for protocol selection
  */
 function autoSelectZmodem(ioSocket: ExtendedSocket, buffer: Buffer): void {
+  if (!ioSocket.tSocket) {
+    return
+  }
+
   const bufferStr = iconv.decode(buffer, 'cp949')
   const result = ZMODEM_PROTOCOL_PROMPT.exec(bufferStr)
 
@@ -84,11 +79,4 @@ function autoSelectZmodem(ioSocket: ExtendedSocket, buffer: Buffer): void {
     const encoded = iconv.encode('3\r\n', 'cp949')
     ioSocket.tSocket.write(encoded)
   }
-}
-
-/**
- * Get the file cache directory
- */
-export function getFileCacheDir(): string {
-  return fileCacheDir
 }

@@ -1,7 +1,14 @@
 import { useRef, RefObject } from 'react'
-import { SCREEN_HEIGHT } from '../constants/terminalConfig'
+import {
+  CANVAS_WIDTH,
+  FONT_WIDTH,
+  SCREEN_HEIGHT
+} from '../constants/terminalConfig'
 import THEMES, { ThemeName } from '../themes'
 import type { TerminalState } from '../types/terminal'
+
+export const MAX_TERMINAL_HISTORY_CHARS =
+  (CANVAS_WIDTH / FONT_WIDTH) * SCREEN_HEIGHT * 4
 
 // Module-level mutable state for terminal emulation
 // These need to be module-level because they're mutated synchronously during rendering
@@ -29,6 +36,34 @@ export const initializeColors = (display: ThemeName = 'VGA'): void => {
   for (let i = 0; i < 16; i++) {
     terminalState.COLOR[i] = THEMES[display][i]
   }
+}
+
+export const trimTerminalHistory = (): void => {
+  const overflow =
+    terminalState.lastPageText.length - MAX_TERMINAL_HISTORY_CHARS
+
+  if (overflow <= 0) return
+
+  terminalState.lastPageText = terminalState.lastPageText.slice(overflow)
+  terminalState.lastPageTextPos = terminalState.lastPageTextPos.slice(overflow)
+}
+
+export const setTerminalHistory = (
+  text: string,
+  positions: TerminalState['lastPageTextPos']
+): void => {
+  terminalState.lastPageText = text
+  terminalState.lastPageTextPos = positions
+  trimTerminalHistory()
+}
+
+export const appendTerminalHistory = (
+  text: string,
+  position: TerminalState['lastPageTextPos'][number]
+): void => {
+  terminalState.lastPageText += text
+  terminalState.lastPageTextPos.push(position)
+  trimTerminalHistory()
 }
 
 // Reset terminal state

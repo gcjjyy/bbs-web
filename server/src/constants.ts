@@ -8,9 +8,6 @@ export const BBS_PORT = 9000
 export const SERVER_PORT = 8199
 export const SERVER_HOST = '0.0.0.0'
 
-// File upload limits
-export const MAX_FILE_SIZE = 512 * 1024 * 1024 // 512MB
-
 // Telnet protocol options
 export const ECHO = 1
 export const TERMINAL_TYPE = 24
