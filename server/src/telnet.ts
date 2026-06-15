@@ -10,6 +10,26 @@ import {
 } from './constants'
 import type { ExtendedSocket, TelnetSocketType } from './types'
 
+const log = (msg: string) => console.log(msg)
+
+function closeBBSConnection(ioSocket: ExtendedSocket, reason: string): void {
+  if (ioSocket.bbsDisconnected) {
+    return
+  }
+
+  ioSocket.bbsDisconnected = true
+  log(`BBS connection closed: ${reason} (${ioSocket.client.conn.remoteAddress})`)
+  ioSocket.emit('bbs-error', { message: reason })
+
+  if (ioSocket.netSocket && !ioSocket.netSocket.destroyed) {
+    ioSocket.netSocket.destroy()
+  }
+
+  if (ioSocket.connected) {
+    ioSocket.disconnect(true)
+  }
+}
+
 /**
  * Preprocess buffer to replace special EUC-KR block characters
  * Replaces with: ESC [ = XXX B (e.g., \x1b[=901B)
@@ -51,16 +71,37 @@ export function preprocessBlockChars(buffer: Buffer): Buffer {
  * Create and configure a telnet connection to the BBS server
  */
 export function createTelnetConnection(ioSocket: ExtendedSocket): void {
-  // Create client TCP Socket
-  ioSocket.netSocket = net.createConnection(BBS_PORT, BBS_ADDR)
+  ioSocket.bbsDisconnected = false
+
+  const netSocket = net.createConnection(BBS_PORT, BBS_ADDR)
+  ioSocket.netSocket = netSocket
+
+  netSocket.on('error', (error) => {
+    closeBBSConnection(ioSocket, error.message)
+  })
+
+  netSocket.on('timeout', () => {
+    closeBBSConnection(ioSocket, 'BBS connection timed out')
+  })
+
+  netSocket.on('close', (hadError) => {
+    if (hadError) {
+      return
+    }
+
+    closeBBSConnection(ioSocket, 'BBS disconnected')
+  })
 
   // Create Telnet Protocol Stream
-  const telnetSocket = new TelnetSocket(ioSocket.netSocket)
+  const telnetSocket = new TelnetSocket(netSocket)
   ioSocket.tSocket = telnetSocket as unknown as TelnetSocketType
 
   // Generate the decode stream
   const decodeStream = iconv.decodeStream('cp949')
   ioSocket.tSocket.decodeStream = decodeStream as unknown as NodeJS.WritableStream
+  decodeStream.on('error', (error: Error) => {
+    closeBBSConnection(ioSocket, error.message)
+  })
   decodeStream.on('data', (data: Buffer) => {
     ioSocket.emit('data', Buffer.from(data))
   })
@@ -68,21 +109,30 @@ export function createTelnetConnection(ioSocket: ExtendedSocket): void {
   // Handle telnet protocol negotiation
   ioSocket.tSocket.on('do', (opt: unknown) => {
     const option = opt as number
+    const { tSocket } = ioSocket
+    if (!tSocket) {
+      return
+    }
+
     if (WILL_OPTIONS.includes(option)) {
-      ioSocket.tSocket.writeWill(option)
+      tSocket.writeWill(option)
 
       if (option === TERMINAL_TYPE) {
-        ioSocket.tSocket.writeSub(TERMINAL_TYPE, Buffer.from('VT100'))
+        tSocket.writeSub(TERMINAL_TYPE, Buffer.from('VT100'))
       }
     } else {
-      ioSocket.tSocket.writeWont(option)
+      tSocket.writeWont(option)
     }
+  })
+
+  ioSocket.tSocket.on('error', (error: unknown) => {
+    const message = error instanceof Error ? error.message : String(error)
+    closeBBSConnection(ioSocket, message)
   })
 
   // Handle BBS disconnection
   ioSocket.tSocket.on('close', () => {
-    console.log('BBS disconnected:', ioSocket.client.conn.remoteAddress)
-    ioSocket.disconnect(true)
+    closeBBSConnection(ioSocket, 'BBS disconnected')
   })
 }
 
@@ -90,9 +140,16 @@ export function createTelnetConnection(ioSocket: ExtendedSocket): void {
  * Send data to BBS (encode to EUC-KR for text, raw for binary)
  */
 export function sendToBBS(ioSocket: ExtendedSocket, data: string | Buffer | Uint8Array): void {
+  if (!ioSocket.tSocket) {
+    ioSocket.emit('bbs-error', { message: 'BBS connection is not available' })
+    return
+  }
+
   // If ZMODEM session is active, send all data raw (no encoding)
   if (ioSocket.zmodemActive) {
-    const buf = Buffer.from(data instanceof Uint8Array ? data : data as Buffer)
+    const buf = typeof data === 'string'
+      ? Buffer.from(data, 'binary')
+      : Buffer.from(data)
     ioSocket.tSocket.write(buf)
     return
   }
