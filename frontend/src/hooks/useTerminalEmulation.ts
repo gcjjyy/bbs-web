@@ -174,125 +174,120 @@ const applyEscape = (
     }
   }
 
-  // Cursor position set
+  // Move cursor to specific position (H or f)
   {
-    // Move cursor to specific position (H or f)
-    {
-      const pattern = /\[([0-9]*);([0-9]*)[Hf]/
-      const result = pattern.exec(escape)
-      if (result) {
-        const param1 = parseInt(result[1], 10)
-        const param2 = parseInt(result[2], 10)
+    const pattern = /\[([0-9]*);([0-9]*)[Hf]/
+    const result = pattern.exec(escape)
+    if (result) {
+      const param1 = parseInt(result[1], 10)
+      const param2 = parseInt(result[2], 10)
+      cursor.y = isNaN(param1) ? 0 : param1 - 1
+      cursor.x = isNaN(param2) ? 0 : param2 - 1
+    } else {
+      const pattern2 = /\[([0-9]*)[Hf]/
+      const result2 = pattern2.exec(escape)
+      if (result2) {
+        const param1 = parseInt(result2[1], 10)
         cursor.y = isNaN(param1) ? 0 : param1 - 1
-        cursor.x = isNaN(param2) ? 0 : param2 - 1
-      } else {
-        const pattern2 = /\[([0-9]*)[Hf]/
-        const result2 = pattern2.exec(escape)
-        if (result2) {
-          const param1 = parseInt(result2[1], 10)
-          cursor.y = isNaN(param1) ? 0 : param1 - 1
-          cursor.x = 0
-        }
-      }
-    }
-
-    // Move cursor up
-    {
-      const pattern = /\[([0-9]*)A/
-      const result = pattern.exec(escape)
-      if (result) {
-        const param1 = parseInt(result[1], 10)
-        cursor.y -= isNaN(param1) || param1 === 0 ? 1 : param1
-        if (cursor.y < 0) {
-          cursor.y = 0
-          cursor.x = 0
-        }
-      }
-    }
-
-    // Move cursor right
-    {
-      const pattern = /\[([0-9]*)C/
-      const result = pattern.exec(escape)
-      if (result) {
-        const param1 = parseInt(result[1], 10)
-        cursor.x += isNaN(param1) || param1 === 0 ? 1 : param1
-      }
-    }
-
-    // Move cursor down
-    {
-      const pattern = /\[([0-9]*)B/
-      const result = pattern.exec(escape)
-      if (result) {
-        const param1 = parseInt(result[1], 10)
-        cursor.y += isNaN(param1) || param1 === 0 ? 1 : param1
-        if (cursor.y >= SCREEN_HEIGHT) {
-          cursor.y = SCREEN_HEIGHT - 1
-        }
-      }
-    }
-
-    // Move cursor left
-    {
-      const pattern = /\[([0-9]*)D/
-      const result = pattern.exec(escape)
-      if (result) {
-        const param1 = parseInt(result[1], 10)
-        cursor.x -= isNaN(param1) || param1 === 0 ? 1 : param1
-        if (cursor.x < 0) {
-          cursor.x = 0
-        }
-      }
-    }
-
-    // Cursor Next Line
-    {
-      const pattern = /\[([0-9]*)E/
-      const result = pattern.exec(escape)
-      if (result) {
-        const param1 = parseInt(result[1], 10)
-        cursor.y += isNaN(param1) || param1 === 0 ? 1 : param1
         cursor.x = 0
-        if (cursor.y >= SCREEN_HEIGHT) {
-          cursor.y = SCREEN_HEIGHT - 1
-        }
       }
     }
+  }
 
-    // Cursor Previous Line
-    {
-      const pattern = /\[([0-9]*)F/
-      const result = pattern.exec(escape)
-      if (result) {
-        const param1 = parseInt(result[1], 10)
-        cursor.y -= isNaN(param1) || param1 === 0 ? 1 : param1
+  // Move cursor up
+  {
+    const pattern = /\[([0-9]*)A/
+    const result = pattern.exec(escape)
+    if (result) {
+      const param1 = parseInt(result[1], 10)
+      cursor.y -= isNaN(param1) || param1 === 0 ? 1 : param1
+      if (cursor.y < 0) {
+        cursor.y = 0
         cursor.x = 0
-        if (cursor.y < 0) {
-          cursor.y = 0
-        }
       }
     }
+  }
 
-    // Store and restore cursor position
-    {
-      if (escape.endsWith('[s')) {
-        terminalState.cursorStore = {
-          x: cursor.x,
-          y: cursor.y,
-          textColor: attr.textColor,
-          backgroundColor: attr.backgroundColor
-        }
-      } else if (escape.endsWith('[u')) {
-        cursor.x = cursorStore.x
-        cursor.y = cursorStore.y
-        if (cursorStore.textColor !== undefined) {
-          attr.textColor = cursorStore.textColor
-        }
-        if (cursorStore.backgroundColor !== undefined) {
-          attr.backgroundColor = cursorStore.backgroundColor
-        }
+  // Move cursor right
+  {
+    const pattern = /\[([0-9]*)C/
+    const result = pattern.exec(escape)
+    if (result) {
+      const param1 = parseInt(result[1], 10)
+      cursor.x += isNaN(param1) || param1 === 0 ? 1 : param1
+    }
+  }
+
+  // Move cursor down
+  {
+    const pattern = /\[([0-9]*)B/
+    const result = pattern.exec(escape)
+    if (result) {
+      const param1 = parseInt(result[1], 10)
+      cursor.y += isNaN(param1) || param1 === 0 ? 1 : param1
+      if (cursor.y >= SCREEN_HEIGHT) {
+        cursor.y = SCREEN_HEIGHT - 1
       }
+    }
+  }
+
+  // Move cursor left
+  {
+    const pattern = /\[([0-9]*)D/
+    const result = pattern.exec(escape)
+    if (result) {
+      const param1 = parseInt(result[1], 10)
+      cursor.x -= isNaN(param1) || param1 === 0 ? 1 : param1
+      if (cursor.x < 0) {
+        cursor.x = 0
+      }
+    }
+  }
+
+  // Cursor Next Line
+  {
+    const pattern = /\[([0-9]*)E/
+    const result = pattern.exec(escape)
+    if (result) {
+      const param1 = parseInt(result[1], 10)
+      cursor.y += isNaN(param1) || param1 === 0 ? 1 : param1
+      cursor.x = 0
+      if (cursor.y >= SCREEN_HEIGHT) {
+        cursor.y = SCREEN_HEIGHT - 1
+      }
+    }
+  }
+
+  // Cursor Previous Line
+  {
+    const pattern = /\[([0-9]*)F/
+    const result = pattern.exec(escape)
+    if (result) {
+      const param1 = parseInt(result[1], 10)
+      cursor.y -= isNaN(param1) || param1 === 0 ? 1 : param1
+      cursor.x = 0
+      if (cursor.y < 0) {
+        cursor.y = 0
+      }
+    }
+  }
+
+  // Store and restore cursor position
+  if (escape.endsWith('[s')) {
+    terminalState.cursorStore = {
+      x: cursor.x,
+      y: cursor.y,
+      textColor: attr.textColor,
+      backgroundColor: attr.backgroundColor
+    }
+  } else if (escape.endsWith('[u')) {
+    cursor.x = cursorStore.x
+    cursor.y = cursorStore.y
+    if (cursorStore.textColor !== undefined) {
+      attr.textColor = cursorStore.textColor
+    }
+    if (cursorStore.backgroundColor !== undefined) {
+      attr.backgroundColor = cursorStore.backgroundColor
     }
   }
 
@@ -351,23 +346,21 @@ const applyEscape = (
   }
 
   // Clear line
-  {
-    if (terminalRef.current) {
-      if (escape.endsWith('[2K')) {
-        ctx2d.fillStyle = COLOR[attr.backgroundColor]
-        ctx2d.fillRect(0, cursor.y * FONT_HEIGHT, terminalRef.current.width, FONT_HEIGHT)
-      } else if (escape.endsWith('[1K')) {
-        ctx2d.fillStyle = COLOR[attr.backgroundColor]
-        ctx2d.fillRect(0, cursor.y * FONT_HEIGHT, (cursor.x + 1) * FONT_WIDTH, FONT_HEIGHT)
-      } else if (escape.endsWith('[0K') || escape.endsWith('[K')) {
-        ctx2d.fillStyle = COLOR[attr.backgroundColor]
-        ctx2d.fillRect(
-          cursor.x * FONT_WIDTH,
-          cursor.y * FONT_HEIGHT,
-          terminalRef.current.width - cursor.x * FONT_WIDTH,
-          FONT_HEIGHT
-        )
-      }
+  if (terminalRef.current) {
+    if (escape.endsWith('[2K')) {
+      ctx2d.fillStyle = COLOR[attr.backgroundColor]
+      ctx2d.fillRect(0, cursor.y * FONT_HEIGHT, terminalRef.current.width, FONT_HEIGHT)
+    } else if (escape.endsWith('[1K')) {
+      ctx2d.fillStyle = COLOR[attr.backgroundColor]
+      ctx2d.fillRect(0, cursor.y * FONT_HEIGHT, (cursor.x + 1) * FONT_WIDTH, FONT_HEIGHT)
+    } else if (escape.endsWith('[0K') || escape.endsWith('[K')) {
+      ctx2d.fillStyle = COLOR[attr.backgroundColor]
+      ctx2d.fillRect(
+        cursor.x * FONT_WIDTH,
+        cursor.y * FONT_HEIGHT,
+        terminalRef.current.width - cursor.x * FONT_WIDTH,
+        FONT_HEIGHT
+      )
     }
   }
 

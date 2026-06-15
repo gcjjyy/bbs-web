@@ -3,8 +3,11 @@ import { createRoot, type Root } from 'react-dom/client'
 import { TextDecoder } from 'util'
 import type { UseZmodemReturn } from './useZmodem'
 
-globalThis.IS_REACT_ACT_ENVIRONMENT = true
-globalThis.TextDecoder = TextDecoder as typeof globalThis.TextDecoder
+const testGlobal = globalThis as typeof globalThis & {
+  IS_REACT_ACT_ENVIRONMENT?: boolean
+}
+testGlobal.IS_REACT_ACT_ENVIRONMENT = true
+testGlobal.TextDecoder = TextDecoder as typeof globalThis.TextDecoder
 
 type ReceiverCallbacks = {
   onSend: (data: Uint8Array) => void

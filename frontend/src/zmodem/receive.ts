@@ -3,12 +3,11 @@
  */
 
 import {
-  ZRQINIT, ZRINIT, ZSINIT, ZACK, ZFILE, ZSKIP, ZNAK, ZFIN, ZRPOS, ZDATA, ZEOF,
+  ZRQINIT, ZRINIT, ZSINIT, ZACK, ZFILE, ZNAK, ZFIN, ZRPOS, ZDATA, ZEOF,
   ZCRCE, ZCRCG, ZCRCQ, ZCRCW,
-  CANFDX, CANOVIO, CANFC32,
-  FRAME_NAMES
+  CANFDX, CANOVIO, CANFC32
 } from './constants'
-import { encodeHexHeader, encodeBinaryHeader32 } from './encode'
+import { encodeHexHeader } from './encode'
 import { ZmodemParser, type ZmodemHeader, type ZmodemData } from './decode'
 
 // Receive states

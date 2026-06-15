@@ -5,7 +5,7 @@
 
 import {
   ZPAD, ZDLE, ZBIN, ZHEX, ZBIN32,
-  ZCRCE, ZCRCG, ZCRCQ, ZCRCW,
+  ZCRCG,
   XON, XOFF, DLE, CR, CAN
 } from './constants'
 import { crc16, crc16Finish, crc32, crc32Finish, crc16Update, crc32Update } from './crc'
