@@ -1,7 +1,7 @@
 import type { BlockReplacement } from './types'
 
 // BBS server configuration
-export const BBS_ADDR = 'bbs.olddos.kr'
+export const BBS_ADDR = 'bbsweb.oscc.kr'
 export const BBS_PORT = 9000
 
 // Server configuration
