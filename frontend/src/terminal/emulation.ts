@@ -3,6 +3,7 @@ import {
   DEFAULT_FONT,
   FONT_WIDTH,
   FONT_HEIGHT,
+  SCREEN_WIDTH,
   SCREEN_HEIGHT
 } from '../constants/terminalConfig'
 import {
@@ -138,6 +139,7 @@ const clearScreen = (
     }
     cursor.x = 0
     cursor.y = 0
+    terminalState.wrapPending = false
   } else if (mode === 0) {
     // Clear from cursor to end of screen
     ctx2d.fillRect(
@@ -244,8 +246,17 @@ const applyEscape = (
   }
 
   if (isDecPrivate) {
-    if ((finalChar === 'h' || finalChar === 'l') && params.includes(1)) {
-      terminalState.applicationCursorKeys = finalChar === 'h'
+    if (finalChar === 'h' || finalChar === 'l') {
+      const enabled = finalChar === 'h'
+      if (params.includes(1)) {
+        terminalState.applicationCursorKeys = enabled
+      }
+      if (params.includes(7)) {
+        terminalState.autoWrapMode = enabled
+        if (!enabled) {
+          terminalState.wrapPending = false
+        }
+      }
     }
     return
   }
@@ -257,12 +268,14 @@ const applyEscape = (
 
     case 'H': // Cursor position (row;col, 1-based)
     case 'f':
+      terminalState.wrapPending = false
       cursor.y = Number.isNaN(params[0]) ? 0 : params[0] - 1
       cursor.x =
         parts.length >= 2 && !Number.isNaN(params[1]) ? params[1] - 1 : 0
       break
 
     case 'A': // Cursor up
+      terminalState.wrapPending = false
       cursor.y -= distance()
       if (cursor.y < 0) {
         cursor.y = 0
@@ -271,6 +284,7 @@ const applyEscape = (
       break
 
     case 'B': // Cursor down
+      terminalState.wrapPending = false
       cursor.y += distance()
       if (cursor.y >= SCREEN_HEIGHT) {
         cursor.y = SCREEN_HEIGHT - 1
@@ -278,10 +292,12 @@ const applyEscape = (
       break
 
     case 'C': // Cursor right
+      terminalState.wrapPending = false
       cursor.x += distance()
       break
 
     case 'D': // Cursor left
+      terminalState.wrapPending = false
       cursor.x -= distance()
       if (cursor.x < 0) {
         cursor.x = 0
@@ -289,6 +305,7 @@ const applyEscape = (
       break
 
     case 'E': // Cursor next line
+      terminalState.wrapPending = false
       cursor.y += distance()
       cursor.x = 0
       if (cursor.y >= SCREEN_HEIGHT) {
@@ -297,6 +314,7 @@ const applyEscape = (
       break
 
     case 'F': // Cursor previous line
+      terminalState.wrapPending = false
       cursor.y -= distance()
       cursor.x = 0
       if (cursor.y < 0) {
@@ -391,12 +409,55 @@ const screenScrollUp = (): void => {
   }
 }
 
-const cr = (): void => { terminalState.cursor.x = 0 }
+const cr = (): void => {
+  terminalState.cursor.x = 0
+  terminalState.wrapPending = false
+}
 
 const lf = (): void => {
+  terminalState.wrapPending = false
   if (++terminalState.cursor.y > terminalState.windowBottom) {
     terminalState.cursor.y = terminalState.windowBottom
     screenScrollUp()
+  }
+}
+
+const backspace = (): void => {
+  if (terminalState.wrapPending) {
+    terminalState.wrapPending = false
+  } else if (terminalState.cursor.x > 0) {
+    terminalState.cursor.x--
+  }
+}
+
+const horizontalTab = (): void => {
+  terminalState.wrapPending = false
+  const nextTabStop = (Math.floor(terminalState.cursor.x / 8) + 1) * 8
+  terminalState.cursor.x = Math.min(nextTabStop, SCREEN_WIDTH - 1)
+}
+
+const preparePrintable = (charWidth: number): void => {
+  const { cursor, autoWrapMode, wrapPending } = terminalState
+
+  if (!wrapPending && cursor.x + charWidth <= SCREEN_WIDTH) return
+
+  if (autoWrapMode) {
+    cursor.x = 0
+    lf()
+  } else {
+    cursor.x = Math.max(0, SCREEN_WIDTH - charWidth)
+    terminalState.wrapPending = false
+  }
+}
+
+const advanceAfterPrintable = (charWidth: number): void => {
+  const nextX = terminalState.cursor.x + charWidth
+  if (nextX >= SCREEN_WIDTH) {
+    terminalState.cursor.x = SCREEN_WIDTH - 1
+    terminalState.wrapPending = terminalState.autoWrapMode
+  } else {
+    terminalState.cursor.x = nextX
+    terminalState.wrapPending = false
   }
 }
 
@@ -413,6 +474,18 @@ export const write = (
   if (!ctx2d) return
 
   for (const ch of text) {
+    const charCode = ch.charCodeAt(0)
+    const isPrintable =
+      !terminalState.escape &&
+      charCode >= 32 &&
+      charCode !== 127 &&
+      charCode !== 65533
+    const charWidth = charCode < 0x80 ? 1 : 2
+
+    if (isPrintable) {
+      preparePrintable(charWidth)
+    }
+
     if (recordHistory) {
       appendTerminalHistory(ch, { x: cursor.x, y: cursor.y })
     }
@@ -424,7 +497,7 @@ export const write = (
         terminalState.escape = null
       }
     } else {
-      switch (ch.charCodeAt(0)) {
+      switch (charCode) {
         case 27:
           terminalState.escape = '\x1b'
           break
@@ -437,16 +510,27 @@ export const write = (
           lf()
           break
 
+        case 8:
+          backspace()
+          break
+
+        case 9:
+          horizontalTab()
+          break
+
         case 0: // NULL
+        case 7: // Bell
         case 24: // ZDLE
         case 17: // XON
+        case 127: // Delete
         case 138: // LF (ZMODEM)
         case 65533: // Unknown
           break
 
         default:
           {
-            const charWidth = ch.charCodeAt(0) < 0x80 ? 1 : 2
+            if (charCode < 32) break
+
             const cursor_px = {
               x: cursor.x * FONT_WIDTH,
               y: cursor.y * FONT_HEIGHT
@@ -476,7 +560,7 @@ export const write = (
               ctx2d.font = previousFont
             }
 
-            cursor.x += charWidth
+            advanceAfterPrintable(charWidth)
           }
           break
       }
@@ -502,6 +586,8 @@ export const replayTerminalHistory = (
   terminalState.cursorStore = { x: 0, y: 0 }
   terminalState.attr = { textColor: 15, backgroundColor: 1, reversed: false }
   terminalState.applicationCursorKeys = false
+  terminalState.autoWrapMode = true
+  terminalState.wrapPending = false
   terminalState.windowTop = 0
   terminalState.windowBottom = SCREEN_HEIGHT - 1
 

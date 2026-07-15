@@ -26,6 +26,8 @@ export const terminalState: TerminalState = {
   smartMouse: [],
   smartMouseCmd: null,
   applicationCursorKeys: false,
+  autoWrapMode: true,
+  wrapPending: false,
   windowTop: 0,
   windowBottom: SCREEN_HEIGHT - 1,
   COLOR: []
@@ -77,6 +79,8 @@ export const resetTerminalState = (): void => {
   terminalState.smartMouse = []
   terminalState.smartMouseCmd = null
   terminalState.applicationCursorKeys = false
+  terminalState.autoWrapMode = true
+  terminalState.wrapPending = false
   terminalState.windowTop = 0
   terminalState.windowBottom = SCREEN_HEIGHT - 1
 }

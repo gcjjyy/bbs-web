@@ -5,6 +5,7 @@ export const CANVAS_HEIGHT: number = 528
 // Font metrics
 export const FONT_WIDTH: number = 8
 export const FONT_HEIGHT: number = 16
+export const SCREEN_WIDTH: number = CANVAS_WIDTH / FONT_WIDTH
 export const SCREEN_HEIGHT: number = 33
 
 // Smart mouse border width

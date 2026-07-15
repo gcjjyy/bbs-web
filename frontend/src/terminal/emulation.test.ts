@@ -70,6 +70,48 @@ test('consumes VT100 keypad mode without swallowing following text', () => {
   expect(terminalState.cursor.x).toBe(5)
 })
 
+test('applies the echoed backspace-space-backspace erase sequence', () => {
+  const ctx = terminalState.ctx2d as CanvasRenderingContext2D
+
+  write('abc\b \b', terminalRef, smartMouseBoxRef, commandRef)
+
+  expect(terminalState.cursor).toEqual({ x: 2, y: 0 })
+  expect(ctx.fillRect).toHaveBeenCalledWith(16, 0, 8, 16)
+})
+
+test('wraps printable text at the 80-column margin', () => {
+  write('x'.repeat(80), terminalRef, smartMouseBoxRef, commandRef)
+  expect(terminalState.cursor).toEqual({ x: 79, y: 0 })
+  expect(terminalState.wrapPending).toBe(true)
+
+  write('y', terminalRef, smartMouseBoxRef, commandRef)
+
+  expect(terminalState.cursor).toEqual({ x: 1, y: 1 })
+  expect(terminalState.lastPageTextPos.at(-1)).toEqual({ x: 0, y: 1 })
+})
+
+test('moves a wide character to the next line when it cannot fit', () => {
+  write(`${'x'.repeat(79)}한`, terminalRef, smartMouseBoxRef, commandRef)
+
+  expect(terminalState.cursor).toEqual({ x: 2, y: 1 })
+  expect(terminalState.lastPageTextPos.at(-1)).toEqual({ x: 0, y: 1 })
+})
+
+test('respects the VT100 automatic wrap mode', () => {
+  write('\x1b[?7l', terminalRef, smartMouseBoxRef, commandRef)
+  write('x'.repeat(81), terminalRef, smartMouseBoxRef, commandRef)
+
+  expect(terminalState.autoWrapMode).toBe(false)
+  expect(terminalState.wrapPending).toBe(false)
+  expect(terminalState.cursor).toEqual({ x: 79, y: 0 })
+
+  write('\x1b[?7h', terminalRef, smartMouseBoxRef, commandRef)
+  write('yz', terminalRef, smartMouseBoxRef, commandRef)
+
+  expect(terminalState.autoWrapMode).toBe(true)
+  expect(terminalState.cursor).toEqual({ x: 1, y: 1 })
+})
+
 test('terminal history keeps text and positions trimmed together', () => {
   const text = 'x'.repeat(MAX_TERMINAL_HISTORY_CHARS + 50)
 

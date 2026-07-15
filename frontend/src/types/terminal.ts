@@ -46,6 +46,8 @@ export interface TerminalState {
   smartMouse: SmartMouseLink[]
   smartMouseCmd: string | null
   applicationCursorKeys: boolean
+  autoWrapMode: boolean
+  wrapPending: boolean
   windowTop: number
   windowBottom: number
   COLOR: string[]
