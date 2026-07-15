@@ -67,3 +67,22 @@ describe('ZmodemParser data subpacket CRC verification', () => {
     expect(parsed.data).toEqual(payload)
   })
 })
+
+describe('ZmodemParser binary header CRC verification', () => {
+  it('reports crcOk true when the CRC32 high byte is >= 0x80', () => {
+    // ZDATA at position 0 produces a CRC32 with the sign bit set, which
+    // regressed to a false mismatch when assembled as a signed integer
+    const { encodeBinaryHeader32 } = require('./encode')
+    const { ZDATA } = require('./constants')
+    const headers: Array<{ crcOk: boolean; type: number }> = []
+    const parser = new ZmodemParser({
+      onHeader: (header) => headers.push(header)
+    })
+
+    parser.parse(encodeBinaryHeader32(ZDATA, 0))
+
+    expect(headers).toHaveLength(1)
+    expect(headers[0].type).toBe(ZDATA)
+    expect(headers[0].crcOk).toBe(true)
+  })
+})

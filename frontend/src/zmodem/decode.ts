@@ -323,11 +323,15 @@ export class ZmodemParser {
     const headerBytes = new Uint8Array([type, p0, p1, p2, p3])
 
     if (isCrc32) {
-      const receivedCrc =
+      // >>> 0 keeps the value unsigned; (byte << 24) alone flips the
+      // sign when the high byte is >= 0x80, which made half of all
+      // valid header CRCs appear to mismatch
+      const receivedCrc = (
         this.headerBuffer[5] |
         (this.headerBuffer[6] << 8) |
         (this.headerBuffer[7] << 16) |
         (this.headerBuffer[8] << 24)
+      ) >>> 0
       let calculatedCrc = crc32(headerBytes)
       calculatedCrc = crc32Finish(calculatedCrc)
       crcOk = receivedCrc === calculatedCrc
