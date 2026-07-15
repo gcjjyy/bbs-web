@@ -401,13 +401,16 @@ const screenScrollUp = (): void => {
 
   if (!ctx2d) return
 
-  const copy = ctx2d.getImageData(
-    0,
-    FONT_HEIGHT * (windowTop + 1),
-    CANVAS_WIDTH,
-    FONT_HEIGHT * (windowBottom - windowTop)
-  )
-  ctx2d.putImageData(copy, 0, FONT_HEIGHT * windowTop)
+  // Self-copy with drawImage stays on the GPU; getImageData forces a
+  // CPU pixel readback on every scrolled line
+  const scrollHeight = FONT_HEIGHT * (windowBottom - windowTop)
+  if (scrollHeight > 0) {
+    ctx2d.drawImage(
+      ctx2d.canvas,
+      0, FONT_HEIGHT * (windowTop + 1), CANVAS_WIDTH, scrollHeight,
+      0, FONT_HEIGHT * windowTop, CANVAS_WIDTH, scrollHeight
+    )
+  }
   ctx2d.fillStyle = COLOR[attr.backgroundColor]
   ctx2d.fillRect(0, windowBottom * FONT_HEIGHT, CANVAS_WIDTH, FONT_HEIGHT)
 

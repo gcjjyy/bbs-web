@@ -33,7 +33,9 @@ const createContext = () =>
     fillText: jest.fn(),
     measureText: jest.fn((text: string) => ({ width: text.length * 8 })),
     getImageData: jest.fn(() => ({})),
-    putImageData: jest.fn()
+    putImageData: jest.fn(),
+    drawImage: jest.fn(),
+    canvas: terminalRef.current
   }) as unknown as CanvasRenderingContext2D
 
 beforeEach(() => {
@@ -61,6 +63,21 @@ test('terminal history keeps text and positions trimmed together', () => {
   expect(terminalState.lastPageTextPos).toHaveLength(
     terminalState.lastPageText.length
   )
+})
+
+test('scrolling copies the canvas with drawImage instead of pixel readback', () => {
+  const ctx = terminalState.ctx2d as CanvasRenderingContext2D
+
+  // 33 lines tall; one extra line feed forces a scroll
+  write('\n'.repeat(33), terminalRef, smartMouseBoxRef, commandRef)
+
+  expect(ctx.drawImage).toHaveBeenCalledWith(
+    terminalRef.current,
+    0, 16, 640, 512,
+    0, 0, 640, 512
+  )
+  expect(ctx.getImageData).not.toHaveBeenCalled()
+  expect(ctx.putImageData).not.toHaveBeenCalled()
 })
 
 test('clear line uses the intrinsic canvas width for drawing coordinates', () => {
