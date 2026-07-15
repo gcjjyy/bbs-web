@@ -1,12 +1,13 @@
 import type { BlockReplacement } from './types'
+import { envString, envInt } from './env'
 
-// BBS server configuration
-export const BBS_ADDR = 'bbsweb.oscc.kr'
-export const BBS_PORT = 9000
+// BBS server configuration (override with BBS_ADDR/BBS_PORT env vars)
+export const BBS_ADDR = envString('BBS_ADDR', 'bbsweb.oscc.kr')
+export const BBS_PORT = envInt('BBS_PORT', 9000)
 
-// Server configuration
-export const SERVER_PORT = 8199
-export const SERVER_HOST = '0.0.0.0'
+// Server configuration (override with SERVER_PORT/SERVER_HOST env vars)
+export const SERVER_PORT = envInt('SERVER_PORT', 8199)
+export const SERVER_HOST = envString('SERVER_HOST', '0.0.0.0')
 
 // Telnet protocol options
 export const ECHO = 1
