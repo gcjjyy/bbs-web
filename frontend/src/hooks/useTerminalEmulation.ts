@@ -22,371 +22,320 @@ interface WriteOptions {
   recordHistory?: boolean
 }
 
+// SGR (ESC[...m) code -> palette index
+const SGR_TEXT_COLORS: Record<number, number> = {
+  30: 0, 31: 4, 32: 2, 33: 14, 34: 1, 35: 5, 36: 3, 37: 15,
+  90: 8, 91: 12, 92: 10, 93: 14, 94: 9, 95: 13, 96: 11, 97: 15
+}
+const SGR_BACKGROUND_COLORS: Record<number, number> = {
+  40: 0, 41: 4, 42: 2, 43: 14, 44: 1, 45: 5, 46: 3, 47: 15,
+  100: 8, 101: 12, 102: 10, 103: 14, 104: 9, 105: 13, 106: 11, 107: 15
+}
+// Bold, dim, underline, blink, hidden and their "off" codes: accepted
+// but not rendered
+const SGR_IGNORED = new Set([1, 2, 4, 5, 8, 22, 24, 25, 28])
+
+const resetAttributes = (): void => {
+  const { attr } = terminalState
+  attr.reversed = false
+  attr.textColor = 15
+  attr.backgroundColor = 1
+}
+
+const applySgr = (parts: string[]): void => {
+  const { attr } = terminalState
+
+  for (const part of parts) {
+    const code = parseInt(part, 10)
+    if (!part || code === 0) {
+      resetAttributes()
+    } else if (SGR_IGNORED.has(code)) {
+      // Not rendered
+    } else if (code === 7) {
+      attr.reversed = true
+    } else if (code === 27) {
+      attr.reversed = false
+    } else if (code in SGR_TEXT_COLORS) {
+      attr.textColor = SGR_TEXT_COLORS[code]
+    } else if (code in SGR_BACKGROUND_COLORS) {
+      attr.backgroundColor = SGR_BACKGROUND_COLORS[code]
+    } else {
+      // Unknown code resets everything (historical behavior)
+      resetAttributes()
+    }
+  }
+}
+
+// Draw a non-standard EUC-KR block character: ESC[=9XXB where XX is
+// 01=full, 02=upper half, 03=lower half, 04=left half, 05=right half
+const drawBlock = (blockType: number): void => {
+  const { ctx2d, cursor, attr, COLOR } = terminalState
+  if (!ctx2d) return
+
+  const x = cursor.x * FONT_WIDTH
+  const y = cursor.y * FONT_HEIGHT
+  let textColor = COLOR[attr.textColor]
+  let backgroundColor = COLOR[attr.backgroundColor]
+  if (attr.reversed) {
+    textColor = COLOR[attr.backgroundColor]
+    backgroundColor = COLOR[attr.textColor]
+  }
+
+  // 2-column wide block (original EUC-KR char was 2 bytes wide)
+  const width = 2 * FONT_WIDTH
+  const height = FONT_HEIGHT
+
+  ctx2d.fillStyle = backgroundColor
+  ctx2d.fillRect(x, y, width, height)
+
+  ctx2d.fillStyle = textColor
+  switch (blockType) {
+    case 2: // Upper half block (902)
+      ctx2d.fillRect(x, y, width, height / 2)
+      break
+    case 3: // Lower half block (903)
+      ctx2d.fillRect(x, y + height / 2, width, height / 2)
+      break
+    case 4: // Left half block (904)
+      ctx2d.fillRect(x, y, width / 2, height)
+      break
+    case 5: // Right half block (905)
+      ctx2d.fillRect(x + width / 2, y, width / 2, height)
+      break
+    default: // Full block (901) and unknown types
+      ctx2d.fillRect(x, y, width, height)
+  }
+
+  // Advance cursor by 2 columns
+  cursor.x += 2
+}
+
+const clearScreen = (
+  mode: number,
+  terminalRef: RefObject<HTMLCanvasElement | null>,
+  recordHistory: boolean
+): void => {
+  const { ctx2d, cursor, attr, COLOR } = terminalState
+  if (!ctx2d || !terminalRef.current) return
+
+  ctx2d.fillStyle = COLOR[attr.backgroundColor]
+
+  if (mode === 2) {
+    // Clear entire screen
+    ctx2d.fillRect(0, 0, terminalRef.current.width, terminalRef.current.height)
+
+    // Clear whole webpage
+    document.getElementsByTagName('body')[0].style.backgroundColor = COLOR[attr.backgroundColor]
+
+    if (recordHistory) {
+      // Keep the redraw buffer anchored at the last full-screen clear.
+      setTerminalHistory('\x1b[2J', [
+        { x: 0, y: 0 },
+        { x: 0, y: 0 },
+        { x: 0, y: 0 },
+        { x: 0, y: 0 }
+      ])
+    }
+    cursor.x = 0
+    cursor.y = 0
+  } else if (mode === 0) {
+    // Clear from cursor to end of screen
+    ctx2d.fillRect(
+      cursor.x * FONT_WIDTH,
+      cursor.y * FONT_HEIGHT,
+      terminalRef.current.width - cursor.x * FONT_WIDTH,
+      FONT_HEIGHT
+    )
+    if (cursor.y < SCREEN_HEIGHT - 1) {
+      ctx2d.fillRect(
+        0,
+        (cursor.y + 1) * FONT_HEIGHT,
+        terminalRef.current.width,
+        terminalRef.current.height - (cursor.y + 1) * FONT_HEIGHT
+      )
+    }
+  } else if (mode === 1) {
+    // Clear from beginning of screen to cursor
+    if (cursor.y > 0) {
+      ctx2d.fillRect(0, 0, terminalRef.current.width, cursor.y * FONT_HEIGHT)
+    }
+    ctx2d.fillRect(0, cursor.y * FONT_HEIGHT, (cursor.x + 1) * FONT_WIDTH, FONT_HEIGHT)
+  }
+}
+
+const clearLine = (
+  mode: number,
+  terminalRef: RefObject<HTMLCanvasElement | null>
+): void => {
+  const { ctx2d, cursor, attr, COLOR } = terminalState
+  if (!ctx2d || !terminalRef.current) return
+
+  ctx2d.fillStyle = COLOR[attr.backgroundColor]
+
+  if (mode === 2) {
+    // Whole line
+    ctx2d.fillRect(0, cursor.y * FONT_HEIGHT, terminalRef.current.width, FONT_HEIGHT)
+  } else if (mode === 1) {
+    // Beginning of line to cursor
+    ctx2d.fillRect(0, cursor.y * FONT_HEIGHT, (cursor.x + 1) * FONT_WIDTH, FONT_HEIGHT)
+  } else if (mode === 0) {
+    // Cursor to end of line
+    ctx2d.fillRect(
+      cursor.x * FONT_WIDTH,
+      cursor.y * FONT_HEIGHT,
+      terminalRef.current.width - cursor.x * FONT_WIDTH,
+      FONT_HEIGHT
+    )
+  }
+}
+
 const applyEscape = (
   terminalRef: RefObject<HTMLCanvasElement | null>,
   recordHistory: boolean
 ): void => {
-  const { ctx2d, cursor, cursorStore, attr, escape, COLOR } = terminalState
+  const { ctx2d, cursor, cursorStore, attr, escape } = terminalState
 
   if (!ctx2d || !escape) return
 
-  // Special block characters (from non-standard EUC-KR)
-  // Pattern: ESC[=9XXB where XX is block type (01=full, 02=upper half, etc.)
-  {
-    const pattern = /\[=9([0-9]{2})B/
-    const result = pattern.exec(escape)
-    if (result) {
-      const blockType = parseInt(result[1], 10)
-      const cursor_px = {
-        x: cursor.x * FONT_WIDTH,
-        y: cursor.y * FONT_HEIGHT
-      }
-      let textColor = COLOR[attr.textColor]
-      let backgroundColor = COLOR[attr.backgroundColor]
-      if (attr.reversed) {
-        textColor = COLOR[attr.backgroundColor]
-        backgroundColor = COLOR[attr.textColor]
-      }
+  // Only CSI sequences (ESC [ ... final-char) are handled
+  if (escape.charAt(1) !== '[') return
 
-      // Draw 2-column wide block (original EUC-KR char was 2-byte wide)
-      const blockWidth = 2 * FONT_WIDTH
-      const blockHeight = FONT_HEIGHT
+  const finalChar = escape.charAt(escape.length - 1)
+  let paramStr = escape.slice(2, -1)
 
-      // Clear background first
-      ctx2d.fillStyle = backgroundColor
-      ctx2d.fillRect(cursor_px.x, cursor_px.y, blockWidth, blockHeight)
-
-      // Draw the block based on type
-      ctx2d.fillStyle = textColor
-      switch (blockType) {
-        case 1: // Full block (901)
-          ctx2d.fillRect(cursor_px.x, cursor_px.y, blockWidth, blockHeight)
-          break
-        case 2: // Upper half block (902)
-          ctx2d.fillRect(cursor_px.x, cursor_px.y, blockWidth, blockHeight / 2)
-          break
-        case 3: // Lower half block (903)
-          ctx2d.fillRect(cursor_px.x, cursor_px.y + blockHeight / 2, blockWidth, blockHeight / 2)
-          break
-        case 4: // Left half block (904)
-          ctx2d.fillRect(cursor_px.x, cursor_px.y, blockWidth / 2, blockHeight)
-          break
-        case 5: // Right half block (905)
-          ctx2d.fillRect(cursor_px.x + blockWidth / 2, cursor_px.y, blockWidth / 2, blockHeight)
-          break
-        default: // Unknown block type, draw full block
-          ctx2d.fillRect(cursor_px.x, cursor_px.y, blockWidth, blockHeight)
-      }
-
-      // Advance cursor by 2 columns
-      cursor.x += 2
-      return // Don't process other escape handlers
-    }
+  // '=' marks this project's private sequences (colors, block chars)
+  const isPrivate = paramStr.startsWith('=')
+  if (isPrivate) {
+    paramStr = paramStr.slice(1)
   }
 
-  // Text color
-  {
-    const pattern = /\[=([0-9]*)F/
-    const result = pattern.exec(escape)
-    if (result) {
-      const param1 = parseInt(result[1], 10)
-      attr.textColor = isNaN(param1) ? 15 : param1
-    }
-  }
+  const parts = paramStr.split(';')
+  const params = parts.map((part) => parseInt(part, 10))
+  // Numeric parameter with a fallback for missing/empty values
+  const param = (index: number, fallback: number): number =>
+    Number.isNaN(params[index]) || params[index] === undefined
+      ? fallback
+      : params[index]
+  // Movement distance: missing or 0 means 1
+  const distance = (): number => param(0, 1) || 1
 
-  // Background color
-  {
-    const pattern = /\[=([0-9]*)G/
-    const result = pattern.exec(escape)
-    if (result) {
-      const param1 = parseInt(result[1], 10)
-      attr.backgroundColor = isNaN(param1) ? 1 : param1
-    }
-  }
-
-  // Reverse color
-  {
-    const pattern = /\[([0-9;]*)m/
-    const result = pattern.exec(escape)
-    if (result) {
-      const attrs = result[1].split(';')
-      for (const attrCode of attrs) {
-        if (!attrCode || parseInt(attrCode, 10) === 0) {
-          // Reset All Attributes
-          attr.reversed = false
-          attr.textColor = 15
-          attr.backgroundColor = 1
-        } else {
-          switch (parseInt(attrCode, 10)) {
-            case 1: // Bold (not fully supported)
-            case 2: // Dim (not supported)
-            case 4: // Underline (not supported)
-            case 5: // Blink (not supported)
-            case 8: // Hidden (not supported)
-            case 22: // Bold/Dim off
-            case 24: // Underline off
-            case 25: // Blink off
-            case 28: // Hidden off
-              break
-            case 7: // Reverse video on
-              attr.reversed = true
-              break
-            case 27: // Reverse video off
-              attr.reversed = false
-              break
-            case 30: attr.textColor = 0; break
-            case 31: attr.textColor = 4; break
-            case 32: attr.textColor = 2; break
-            case 33: attr.textColor = 14; break
-            case 34: attr.textColor = 1; break
-            case 35: attr.textColor = 5; break
-            case 36: attr.textColor = 3; break
-            case 37: attr.textColor = 15; break
-            case 40: attr.backgroundColor = 0; break
-            case 41: attr.backgroundColor = 4; break
-            case 42: attr.backgroundColor = 2; break
-            case 43: attr.backgroundColor = 14; break
-            case 44: attr.backgroundColor = 1; break
-            case 45: attr.backgroundColor = 5; break
-            case 46: attr.backgroundColor = 3; break
-            case 47: attr.backgroundColor = 15; break
-            // Bright foreground colors (90-97)
-            case 90: attr.textColor = 8; break
-            case 91: attr.textColor = 12; break
-            case 92: attr.textColor = 10; break
-            case 93: attr.textColor = 14; break
-            case 94: attr.textColor = 9; break
-            case 95: attr.textColor = 13; break
-            case 96: attr.textColor = 11; break
-            case 97: attr.textColor = 15; break
-            // Bright background colors (100-107)
-            case 100: attr.backgroundColor = 8; break
-            case 101: attr.backgroundColor = 12; break
-            case 102: attr.backgroundColor = 10; break
-            case 103: attr.backgroundColor = 14; break
-            case 104: attr.backgroundColor = 9; break
-            case 105: attr.backgroundColor = 13; break
-            case 106: attr.backgroundColor = 11; break
-            case 107: attr.backgroundColor = 15; break
-            default:
-              attr.reversed = false
-              attr.textColor = 15
-              attr.backgroundColor = 1
-              break
-          }
+  if (isPrivate) {
+    switch (finalChar) {
+      case 'B': // Block character: ESC[=9XXB
+        if (params[0] >= 900 && params[0] <= 999) {
+          drawBlock(params[0] - 900)
         }
-      }
+        break
+      case 'F': // Text color
+        attr.textColor = param(0, 15)
+        break
+      case 'G': // Background color
+        attr.backgroundColor = param(0, 1)
+        break
     }
+    return
   }
 
-  // Move cursor to specific position (H or f)
-  {
-    const pattern = /\[([0-9]*);([0-9]*)[Hf]/
-    const result = pattern.exec(escape)
-    if (result) {
-      const param1 = parseInt(result[1], 10)
-      const param2 = parseInt(result[2], 10)
-      cursor.y = isNaN(param1) ? 0 : param1 - 1
-      cursor.x = isNaN(param2) ? 0 : param2 - 1
-    } else {
-      const pattern2 = /\[([0-9]*)[Hf]/
-      const result2 = pattern2.exec(escape)
-      if (result2) {
-        const param1 = parseInt(result2[1], 10)
-        cursor.y = isNaN(param1) ? 0 : param1 - 1
-        cursor.x = 0
-      }
-    }
-  }
+  switch (finalChar) {
+    case 'm': // Select graphic rendition
+      applySgr(parts)
+      break
 
-  // Move cursor up
-  {
-    const pattern = /\[([0-9]*)A/
-    const result = pattern.exec(escape)
-    if (result) {
-      const param1 = parseInt(result[1], 10)
-      cursor.y -= isNaN(param1) || param1 === 0 ? 1 : param1
+    case 'H': // Cursor position (row;col, 1-based)
+    case 'f':
+      cursor.y = Number.isNaN(params[0]) ? 0 : params[0] - 1
+      cursor.x =
+        parts.length >= 2 && !Number.isNaN(params[1]) ? params[1] - 1 : 0
+      break
+
+    case 'A': // Cursor up
+      cursor.y -= distance()
       if (cursor.y < 0) {
         cursor.y = 0
         cursor.x = 0
       }
-    }
-  }
+      break
 
-  // Move cursor right
-  {
-    const pattern = /\[([0-9]*)C/
-    const result = pattern.exec(escape)
-    if (result) {
-      const param1 = parseInt(result[1], 10)
-      cursor.x += isNaN(param1) || param1 === 0 ? 1 : param1
-    }
-  }
-
-  // Move cursor down
-  {
-    const pattern = /\[([0-9]*)B/
-    const result = pattern.exec(escape)
-    if (result) {
-      const param1 = parseInt(result[1], 10)
-      cursor.y += isNaN(param1) || param1 === 0 ? 1 : param1
+    case 'B': // Cursor down
+      cursor.y += distance()
       if (cursor.y >= SCREEN_HEIGHT) {
         cursor.y = SCREEN_HEIGHT - 1
       }
-    }
-  }
+      break
 
-  // Move cursor left
-  {
-    const pattern = /\[([0-9]*)D/
-    const result = pattern.exec(escape)
-    if (result) {
-      const param1 = parseInt(result[1], 10)
-      cursor.x -= isNaN(param1) || param1 === 0 ? 1 : param1
+    case 'C': // Cursor right
+      cursor.x += distance()
+      break
+
+    case 'D': // Cursor left
+      cursor.x -= distance()
       if (cursor.x < 0) {
         cursor.x = 0
       }
-    }
-  }
+      break
 
-  // Cursor Next Line
-  {
-    const pattern = /\[([0-9]*)E/
-    const result = pattern.exec(escape)
-    if (result) {
-      const param1 = parseInt(result[1], 10)
-      cursor.y += isNaN(param1) || param1 === 0 ? 1 : param1
+    case 'E': // Cursor next line
+      cursor.y += distance()
       cursor.x = 0
       if (cursor.y >= SCREEN_HEIGHT) {
         cursor.y = SCREEN_HEIGHT - 1
       }
-    }
-  }
+      break
 
-  // Cursor Previous Line
-  {
-    const pattern = /\[([0-9]*)F/
-    const result = pattern.exec(escape)
-    if (result) {
-      const param1 = parseInt(result[1], 10)
-      cursor.y -= isNaN(param1) || param1 === 0 ? 1 : param1
+    case 'F': // Cursor previous line
+      cursor.y -= distance()
       cursor.x = 0
       if (cursor.y < 0) {
         cursor.y = 0
       }
-    }
-  }
+      break
 
-  // Store and restore cursor position
-  if (escape.endsWith('[s')) {
-    terminalState.cursorStore = {
-      x: cursor.x,
-      y: cursor.y,
-      textColor: attr.textColor,
-      backgroundColor: attr.backgroundColor
-    }
-  } else if (escape.endsWith('[u')) {
-    cursor.x = cursorStore.x
-    cursor.y = cursorStore.y
-    if (cursorStore.textColor !== undefined) {
-      attr.textColor = cursorStore.textColor
-    }
-    if (cursorStore.backgroundColor !== undefined) {
-      attr.backgroundColor = cursorStore.backgroundColor
-    }
-  }
-
-  // Clear screen
-  {
-    const pattern = /\[([0-9]*)J/
-    const result = pattern.exec(escape)
-    if (result && terminalRef.current) {
-      const param1 = result[1] === '' ? 0 : parseInt(result[1], 10)
-
-      if (param1 === 2) {
-        // Clear entire screen
-        ctx2d.fillStyle = COLOR[attr.backgroundColor]
-        ctx2d.fillRect(0, 0, terminalRef.current.width, terminalRef.current.height)
-
-        // Clear whole webpage
-        document.getElementsByTagName('body')[0].style.backgroundColor = COLOR[attr.backgroundColor]
-
-        if (recordHistory) {
-          // Keep the redraw buffer anchored at the last full-screen clear.
-          setTerminalHistory('\x1b[2J', [
-            { x: 0, y: 0 },
-            { x: 0, y: 0 },
-            { x: 0, y: 0 },
-            { x: 0, y: 0 }
-          ])
+    case 's': // Store cursor position and colors
+      if (paramStr === '') {
+        terminalState.cursorStore = {
+          x: cursor.x,
+          y: cursor.y,
+          textColor: attr.textColor,
+          backgroundColor: attr.backgroundColor
         }
-        cursor.x = 0
-        cursor.y = 0
-      } else if (param1 === 0) {
-        // Clear from cursor to end of screen
-        ctx2d.fillStyle = COLOR[attr.backgroundColor]
-        ctx2d.fillRect(
-          cursor.x * FONT_WIDTH,
-          cursor.y * FONT_HEIGHT,
-          terminalRef.current.width - cursor.x * FONT_WIDTH,
-          FONT_HEIGHT
-        )
-        if (cursor.y < SCREEN_HEIGHT - 1) {
-          ctx2d.fillRect(
-            0,
-            (cursor.y + 1) * FONT_HEIGHT,
-            terminalRef.current.width,
-            terminalRef.current.height - (cursor.y + 1) * FONT_HEIGHT
-          )
-        }
-      } else if (param1 === 1) {
-        // Clear from beginning of screen to cursor
-        ctx2d.fillStyle = COLOR[attr.backgroundColor]
-        if (cursor.y > 0) {
-          ctx2d.fillRect(0, 0, terminalRef.current.width, cursor.y * FONT_HEIGHT)
-        }
-        ctx2d.fillRect(0, cursor.y * FONT_HEIGHT, (cursor.x + 1) * FONT_WIDTH, FONT_HEIGHT)
       }
-    }
-  }
+      break
 
-  // Clear line
-  if (terminalRef.current) {
-    if (escape.endsWith('[2K')) {
-      ctx2d.fillStyle = COLOR[attr.backgroundColor]
-      ctx2d.fillRect(0, cursor.y * FONT_HEIGHT, terminalRef.current.width, FONT_HEIGHT)
-    } else if (escape.endsWith('[1K')) {
-      ctx2d.fillStyle = COLOR[attr.backgroundColor]
-      ctx2d.fillRect(0, cursor.y * FONT_HEIGHT, (cursor.x + 1) * FONT_WIDTH, FONT_HEIGHT)
-    } else if (escape.endsWith('[0K') || escape.endsWith('[K')) {
-      ctx2d.fillStyle = COLOR[attr.backgroundColor]
-      ctx2d.fillRect(
-        cursor.x * FONT_WIDTH,
-        cursor.y * FONT_HEIGHT,
-        terminalRef.current.width - cursor.x * FONT_WIDTH,
-        FONT_HEIGHT
-      )
-    }
-  }
-
-  // Set window area
-  {
-    const pattern = /\[([0-9]*);([0-9]*)r/
-    const result = pattern.exec(escape)
-    if (result) {
-      const param1 = parseInt(result[1], 10)
-      const param2 = parseInt(result[2], 10)
-      const scrollFrom = isNaN(param1) ? 0 : param1 - 1
-      const scrollTo = isNaN(param2) ? 0 : param2 - 1
-
-      if (scrollFrom <= 0 && scrollTo <= 0) {
-        terminalState.windowTop = 0
-        terminalState.windowBottom = SCREEN_HEIGHT - 1
-      } else {
-        terminalState.windowTop = scrollFrom
-        terminalState.windowBottom = scrollTo
+    case 'u': // Restore cursor position and colors
+      if (paramStr === '') {
+        cursor.x = cursorStore.x
+        cursor.y = cursorStore.y
+        if (cursorStore.textColor !== undefined) {
+          attr.textColor = cursorStore.textColor
+        }
+        if (cursorStore.backgroundColor !== undefined) {
+          attr.backgroundColor = cursorStore.backgroundColor
+        }
       }
-    }
+      break
+
+    case 'J': // Clear screen
+      clearScreen(param(0, 0), terminalRef, recordHistory)
+      break
+
+    case 'K': // Clear line
+      clearLine(param(0, 0), terminalRef)
+      break
+
+    case 'r': // Set scroll region (top;bottom, 1-based)
+      if (parts.length >= 2) {
+        const scrollFrom = Number.isNaN(params[0]) ? 0 : params[0] - 1
+        const scrollTo = Number.isNaN(params[1]) ? 0 : params[1] - 1
+
+        if (scrollFrom <= 0 && scrollTo <= 0) {
+          terminalState.windowTop = 0
+          terminalState.windowBottom = SCREEN_HEIGHT - 1
+        } else {
+          terminalState.windowTop = scrollFrom
+          terminalState.windowBottom = scrollTo
+        }
+      }
+      break
   }
 }
 
