@@ -10,7 +10,7 @@ import {
   setTerminalHistory,
   terminalState
 } from './useTerminalState'
-import { rebuildSmartMouse } from './useSmartMouse'
+import { scheduleSmartMouseRebuild } from './useSmartMouse'
 import type { RefObject } from 'react'
 import {
   getTerminalCanvasFont,
@@ -514,8 +514,8 @@ export const write = (
     }
   }
 
-  // Rebuild smart mouse
-  rebuildSmartMouse(smartMouseBoxRef)
+  // Rebuild smart mouse once output settles
+  scheduleSmartMouseRebuild(smartMouseBoxRef)
 
   // Move the command textfield to the cursor position
   moveCommandInputPosition(terminalRef, commandRef)

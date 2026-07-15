@@ -80,6 +80,24 @@ test('scrolling copies the canvas with drawImage instead of pixel readback', () 
   expect(ctx.putImageData).not.toHaveBeenCalled()
 })
 
+test('smart mouse rebuild is debounced until output settles', () => {
+  jest.useFakeTimers()
+  try {
+    write('12. 게시판', terminalRef, smartMouseBoxRef, commandRef)
+    write(' 이동', terminalRef, smartMouseBoxRef, commandRef)
+
+    // Not rebuilt synchronously during rapid output
+    expect(terminalState.smartMouse).toHaveLength(0)
+
+    jest.runAllTimers()
+
+    expect(terminalState.smartMouse.length).toBeGreaterThan(0)
+    expect(terminalState.smartMouse[0].command).toBe('12')
+  } finally {
+    jest.useRealTimers()
+  }
+})
+
 test('clear line uses the intrinsic canvas width for drawing coordinates', () => {
   const ctx = terminalState.ctx2d as CanvasRenderingContext2D
 

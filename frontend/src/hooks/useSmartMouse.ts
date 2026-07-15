@@ -23,6 +23,23 @@ const SMART_MOUSE_PATTERNS: SmartMousePattern[] = [
   { pattern: /([0-9]+) +(JTBC|오마이뉴스|전자신문|속보|정치|연예|전체기사|주요기사|사회|오늘의 뉴스|게임)/gi, captureOnly: false } // News Titles
 ]
 
+// Rebuilding scans the whole page text with every pattern, so writes
+// debounce it until output has settled
+const REBUILD_DEBOUNCE_MS = 50
+let rebuildTimer: ReturnType<typeof setTimeout> | null = null
+
+export const scheduleSmartMouseRebuild = (
+  smartMouseBoxRef: RefObject<HTMLDivElement | null>
+): void => {
+  if (rebuildTimer !== null) {
+    clearTimeout(rebuildTimer)
+  }
+  rebuildTimer = setTimeout(() => {
+    rebuildTimer = null
+    rebuildSmartMouse(smartMouseBoxRef)
+  }, REBUILD_DEBOUNCE_MS)
+}
+
 export const stripAnsiColorCodes = (text: string): string =>
   text.replace(new RegExp(String.raw`\x1b\[=.{1,3}[FG]`, 'gi'), '').trim()
 
