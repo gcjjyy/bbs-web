@@ -7,7 +7,7 @@
  */
 
 import { useState, useRef, useCallback } from 'react'
-import { formatBytes } from '../utils/helpers'
+import { formatBytes, createProgressThrottle } from '../utils/helpers'
 import { terminalState } from './useTerminalState'
 import { ZmodemReceiver, ZmodemSender, encodeCancelSequence } from '../zmodem'
 import type { FileInfo, FileToSend } from '../zmodem'
@@ -93,6 +93,10 @@ export function useZmodem(
   // Store initial ZRINIT data when upload trigger is detected
   const pendingZrinitRef = useRef<Uint8Array | null>(null)
 
+  // Throttle progress re-renders: chunks arrive every 8KB, which means
+  // thousands of state updates for large files
+  const progressThrottleRef = useRef(createProgressThrottle(100))
+
   // Create receiver instance
   const createReceiver = useCallback(() => {
     const receiver = new ZmodemReceiver({
@@ -111,7 +115,7 @@ export function useZmodem(
       },
 
       onProgress: (received: number, total: number) => {
-        if (total > 0) {
+        if (total > 0 && progressThrottleRef.current(received, total)) {
           const pct = Math.floor((received / total) * 100)
           setRzProgressNow(pct)
           setRzProgressLabel(`${pct}%`)
@@ -171,7 +175,7 @@ export function useZmodem(
       },
 
       onProgress: (sent: number, total: number) => {
-        if (total > 0) {
+        if (total > 0 && progressThrottleRef.current(sent, total)) {
           const pct = Math.floor((sent / total) * 100)
           setSzProgressNow(pct)
           setSzProgressLabel(`${pct}%`)
