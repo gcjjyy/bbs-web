@@ -32,7 +32,7 @@ interface DownloadState {
   progressNow: number
   progressLabel: string
   finished: boolean
-  fileData: Uint8Array | null
+  fileBlob: Blob | null
   fileName: string | null
 }
 
@@ -55,7 +55,7 @@ const INITIAL_DOWNLOAD: DownloadState = {
   progressNow: 0,
   progressLabel: '',
   finished: false,
-  fileData: null,
+  fileBlob: null,
   fileName: null
 }
 
@@ -81,7 +81,7 @@ export interface ZmodemHookState {
   rzProgressNow: number
   rzProgressLabel: string
   rzFinished: boolean
-  rzFileData: Uint8Array | null
+  rzFileBlob: Blob | null
   rzFileName: string | null
 
   // Upload state
@@ -167,21 +167,22 @@ export function useZmodem(
         }
       },
 
-      onFileComplete: (info: FileInfo, data: Uint8Array) => {
-        console.log(`[ZMODEM] File complete: ${info.name}, size=${data.length}`)
-
-        // Copy data to ensure it's not a view
-        const dataCopy = new Uint8Array(data.length)
-        dataCopy.set(data)
+      onFileComplete: (info: FileInfo, chunks: Uint8Array[]) => {
+        // Build the Blob straight from the received chunks; no
+        // intermediate contiguous copy of the whole file is needed
+        const blob = new Blob(chunks as BlobPart[], {
+          type: 'application/octet-stream'
+        })
+        console.log(`[ZMODEM] File complete: ${info.name}, size=${blob.size}`)
 
         setRz((prev) => ({
           ...prev,
-          fileData: dataCopy,
+          fileBlob: blob,
           fileName: info.name,
           finished: true,
           progressNow: 100,
           progressLabel: '100%',
-          progress: `${formatBytes(data.length)} / ${formatBytes(data.length)}`,
+          progress: `${formatBytes(blob.size)} / ${formatBytes(blob.size)}`,
           text: '다운로드 완료!'
         }))
       },
@@ -437,12 +438,8 @@ export function useZmodem(
 
   // Download the received file
   const downloadFile = useCallback(() => {
-    if (rz.fileData && rz.fileName) {
-      // Create blob and download
-      const buffer = new ArrayBuffer(rz.fileData.length)
-      new Uint8Array(buffer).set(rz.fileData)
-      const blob = new Blob([buffer], { type: 'application/octet-stream' })
-      const url = URL.createObjectURL(blob)
+    if (rz.fileBlob && rz.fileName) {
+      const url = URL.createObjectURL(rz.fileBlob)
       const a = document.createElement('a')
       a.href = url
       a.download = rz.fileName
@@ -455,7 +452,7 @@ export function useZmodem(
         terminalState.io.emit('data', '\r\n')
       }
     }
-  }, [rz.fileData, rz.fileName])
+  }, [rz.fileBlob, rz.fileName])
 
   // Check if ZMODEM is active
   const isZmodemActive = useCallback(() => {
@@ -472,7 +469,7 @@ export function useZmodem(
       rzProgressNow: rz.progressNow,
       rzProgressLabel: rz.progressLabel,
       rzFinished: rz.finished,
-      rzFileData: rz.fileData,
+      rzFileBlob: rz.fileBlob,
       rzFileName: rz.fileName,
       szFileSelectDiag: sz.fileSelectDialog,
       szDiag: sz.dialog,

@@ -32,7 +32,9 @@ export interface ReceiveCallbacks {
   onSend: (data: Uint8Array) => void
   onFileStart?: (info: FileInfo) => void
   onProgress?: (received: number, total: number) => void
-  onFileComplete?: (info: FileInfo, data: Uint8Array) => void
+  // Chunks are handed over as-is so large files never need a second
+  // contiguous copy in memory (pass them straight to `new Blob(chunks)`)
+  onFileComplete?: (info: FileInfo, chunks: Uint8Array[]) => void
   onSessionComplete?: () => void
   onError?: (error: string) => void
 }
@@ -344,16 +346,8 @@ export class ZmodemReceiver {
    */
   private handleFileComplete(): void {
     if (this.fileInfo) {
-      // Concatenate all chunks into a single Uint8Array
-      const totalSize = this.fileDataChunks.reduce((sum, chunk) => sum + chunk.length, 0)
-      const data = new Uint8Array(totalSize)
-      let offset = 0
-      for (const chunk of this.fileDataChunks) {
-        data.set(chunk, offset)
-        offset += chunk.length
-      }
-      this.log(`File complete: ${this.fileInfo.name}, ${data.length} bytes`)
-      this.callbacks.onFileComplete?.(this.fileInfo, data)
+      this.log(`File complete: ${this.fileInfo.name}, ${this.bytesReceived} bytes`)
+      this.callbacks.onFileComplete?.(this.fileInfo, this.fileDataChunks)
     }
 
     this.fileInfo = null

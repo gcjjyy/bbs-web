@@ -1,4 +1,4 @@
-import { ZCRCW, ZFILE, ZRPOS } from './constants'
+import { ZCRCG, ZCRCW, ZDATA, ZEOF, ZFILE, ZRPOS } from './constants'
 import { encodeBinaryHeader32, encodeDataSubpacket32 } from './encode'
 import { ZmodemParser, type ZmodemHeader } from './decode'
 import { ZmodemReceiver, type FileInfo } from './receive'
@@ -35,6 +35,40 @@ function sentHeaderTypes(sent: Uint8Array[]): number[] {
 }
 
 describe('ZmodemReceiver', () => {
+  it('delivers file data as chunks without concatenating', () => {
+    const sent: Uint8Array[] = []
+    let completedInfo: FileInfo | null = null
+    let completedChunks: Uint8Array[] | null = null
+    const receiver = new ZmodemReceiver({
+      onSend: (data) => sent.push(data),
+      onFileComplete: (info, chunks) => {
+        completedInfo = info
+        completedChunks = chunks
+      }
+    })
+
+    receiver.start()
+    receiver.processData(encodeBinaryHeader32(ZFILE, 0))
+    receiver.processData(
+      encodeDataSubpacket32(makeFileInfo('test.bin', 6), ZCRCW)
+    )
+    receiver.processData(encodeBinaryHeader32(ZDATA, 0))
+    receiver.processData(
+      encodeDataSubpacket32(Uint8Array.from([1, 2, 3]), ZCRCG)
+    )
+    receiver.processData(
+      encodeDataSubpacket32(Uint8Array.from([4, 5, 6]), ZCRCW)
+    )
+    receiver.processData(encodeBinaryHeader32(ZEOF, 6))
+
+    expect(completedInfo).toMatchObject({ name: 'test.bin', size: 6 })
+    expect(completedChunks).not.toBeNull()
+    expect(completedChunks!.length).toBeGreaterThan(1)
+    expect(
+      completedChunks!.flatMap((chunk) => Array.from(chunk))
+    ).toEqual([1, 2, 3, 4, 5, 6])
+  })
+
   it('continues receiving when a data subpacket CRC check is incompatible', () => {
     const sent: Uint8Array[] = []
     const fileStarts: FileInfo[] = []
