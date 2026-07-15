@@ -16,6 +16,10 @@ import type { FileInfo, FileToSend } from '../zmodem'
 const RZ_DETECT_PATTERN = /B00000000000000/
 const SZ_DETECT_PATTERN = /B0100/
 
+// Longest trigger pattern is 15 chars, so 14 tail chars are enough to
+// complete a pattern split across two data events
+const DETECT_TAIL_LENGTH = 14
+
 export interface ZmodemHookState {
   // Session state
   isActive: boolean
@@ -96,6 +100,9 @@ export function useZmodem(
   // Throttle progress re-renders: chunks arrive every 8KB, which means
   // thousands of state updates for large files
   const progressThrottleRef = useRef(createProgressThrottle(100))
+
+  // Tail of the previous data event, for triggers split across packets
+  const detectTailRef = useRef('')
 
   // Create receiver instance
   const createReceiver = useCallback(() => {
@@ -231,12 +238,15 @@ export function useZmodem(
       return true
     }
 
-    // Check for ZMODEM patterns
-    const textData = new TextDecoder('latin1').decode(bytes)
+    // Check for ZMODEM patterns, joining the previous event's tail so
+    // triggers split across packets are still detected
+    const textData =
+      detectTailRef.current + new TextDecoder('latin1').decode(bytes)
 
     // Check for download trigger (remote wants to send file)
     if (RZ_DETECT_PATTERN.test(textData)) {
       console.log('[ZMODEM] Download trigger detected')
+      detectTailRef.current = ''
 
       // Create and start receiver
       const receiver = createReceiver()
@@ -263,6 +273,7 @@ export function useZmodem(
     // Check for upload trigger (remote ready to receive)
     if (SZ_DETECT_PATTERN.test(textData)) {
       console.log('[ZMODEM] Upload trigger detected')
+      detectTailRef.current = ''
       // Store the initial ZRINIT data to feed to sender later
       pendingZrinitRef.current = new Uint8Array(bytes)
       // Show file selection dialog
@@ -271,6 +282,7 @@ export function useZmodem(
       return false
     }
 
+    detectTailRef.current = textData.slice(-DETECT_TAIL_LENGTH)
     return false
   }, [createReceiver])
 

@@ -109,6 +109,51 @@ describe('handleBBSData', () => {
     expect(decoded[0]!.toString('ascii')).toBe('welcome to the bbs\r\n')
   })
 
+  test('detects a download trigger split across two packets', () => {
+    const { socket } = createMockSocket()
+
+    handleBBSData(socket, Buffer.from('rz waiting **B0000000', 'latin1'))
+    expect(socket.zmodemActive).toBe(false)
+
+    handleBBSData(socket, Buffer.from('0000000\r\n', 'latin1'))
+    expect(socket.zmodemActive).toBe(true)
+  })
+
+  test('detects an upload trigger split across two packets', () => {
+    const { socket } = createMockSocket()
+
+    handleBBSData(socket, Buffer.from('**B0', 'latin1'))
+    expect(socket.zmodemActive).toBe(false)
+
+    handleBBSData(socket, Buffer.from('100000023be50\r\n', 'latin1'))
+    expect(socket.zmodemActive).toBe(true)
+  })
+
+  test('does not combine packets separated by a ZMODEM session', () => {
+    const { socket } = createMockSocket()
+
+    // Tail ends with a partial trigger, then a session runs and ends
+    handleBBSData(socket, Buffer.from('**B0', 'latin1'))
+    socket.zmodemActive = true
+    handleBBSData(socket, Buffer.alloc(16, 0x41))
+    socket.zmodemActive = false
+
+    // New text that would complete the stale tail must not trigger
+    handleBBSData(socket, Buffer.from('100 items found\r\n', 'latin1'))
+    expect(socket.zmodemActive).toBe(false)
+  })
+
+  test('exits ZMODEM mode on CAN bytes split across two packets', () => {
+    const { socket } = createMockSocket()
+    socket.zmodemActive = true
+
+    handleBBSData(socket, Buffer.from([0x41, 0x18, 0x18]))
+    expect(socket.zmodemActive).toBe(true)
+
+    handleBBSData(socket, Buffer.from([0x18, 0x18, 0x18]))
+    expect(socket.zmodemActive).toBe(false)
+  })
+
   test('auto-selects ZMODEM when protocol prompt appears', () => {
     const { socket, written } = createMockSocket()
     const prompt = '송신 프로토콜(1:Xmodem, 2:Ymodem, 3:Zmodem):'

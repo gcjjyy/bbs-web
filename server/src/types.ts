@@ -19,6 +19,11 @@ export interface ExtendedSocket extends Socket {
 
   // Browser ZMODEM pass-through state
   zmodemActive?: boolean
+  // Tail of the previous buffer, kept so trigger patterns split across
+  // TCP packets are still detected
+  zmodemDetectTail?: string
+  // Consecutive CAN bytes seen so far (survives packet boundaries)
+  zmodemCanCount?: number
   bbsDisconnected?: boolean
 }
 

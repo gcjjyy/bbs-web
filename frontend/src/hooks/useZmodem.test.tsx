@@ -92,6 +92,58 @@ describe('useZmodem session cleanup', () => {
     mockReceiverInstances.length = 0
   })
 
+  it('detects a download trigger split across two data events', () => {
+    const hook = renderUseZmodem()
+    const firstHalf = asciiBytes('rz\rB0000000')
+    const secondHalf = asciiBytes('0000000')
+
+    act(() => {
+      expect(
+        hook.getResult().processIncomingData(arrayBuffer(firstHalf))
+      ).toBe(false)
+    })
+    expect(mockReceiverInstances).toHaveLength(0)
+
+    act(() => {
+      expect(
+        hook.getResult().processIncomingData(arrayBuffer(secondHalf))
+      ).toBe(true)
+    })
+    expect(mockReceiverInstances).toHaveLength(1)
+    hook.unmount()
+  })
+
+  it('does not treat data during an active session as a fresh trigger tail', () => {
+    const hook = renderUseZmodem()
+
+    act(() => {
+      hook.getResult().processIncomingData(arrayBuffer(asciiBytes('**B0')))
+    })
+
+    // Full trigger in one packet starts a session and consumes the tail
+    act(() => {
+      expect(
+        hook
+          .getResult()
+          .processIncomingData(arrayBuffer(asciiBytes('B00000000000000')))
+      ).toBe(true)
+    })
+    act(() => {
+      mockReceiverInstances[0].callbacks.onSessionComplete()
+    })
+
+    // Text that would complete the stale '**B0' tail must not trigger
+    act(() => {
+      expect(
+        hook
+          .getResult()
+          .processIncomingData(arrayBuffer(asciiBytes('100 items found')))
+      ).toBe(false)
+    })
+    expect(mockReceiverInstances).toHaveLength(1)
+    hook.unmount()
+  })
+
   it('does not consume normal terminal data after receiver completes', () => {
     const hook = renderUseZmodem()
     const trigger = asciiBytes('rz\rB00000000000000')
