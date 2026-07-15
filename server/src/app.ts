@@ -1,9 +1,9 @@
 import * as http from 'http'
 import express from 'express'
 import { Server } from 'socket.io'
-import Iconv from 'iconv'
 
 import { SERVER_PORT, SERVER_HOST } from './constants'
+import { encodeFilenameToCp949 } from './encoding'
 import { createTelnetConnection, sendToBBS } from './telnet'
 import { handleBBSData } from './zmodem'
 import type { ExtendedSocket } from './types'
@@ -18,9 +18,7 @@ const staticPath = import.meta.dir + '/../../frontend/build'
 app.use(express.static(staticPath))
 app.use(express.json())
 
-// Filename encoding API for ZMODEM (using native iconv for CP949)
-const utf8ToCp949 = new Iconv.Iconv('UTF-8', 'CP949')
-
+// Filename encoding API for ZMODEM (CP949)
 app.post('/api/encode-filename', (req, res) => {
   const { filename } = req.body
   if (!filename) {
@@ -28,11 +26,8 @@ app.post('/api/encode-filename', (req, res) => {
     return
   }
 
-  // macOS uses NFD (decomposed) for filenames, but CP949 needs NFC (composed)
-  const normalizedFilename = filename.normalize('NFC')
-
   try {
-    const encoded = utf8ToCp949.convert(Buffer.from(normalizedFilename, 'utf8'))
+    const encoded = encodeFilenameToCp949(filename)
     res.json({ encoded: Array.from(encoded) })
   } catch (e) {
     console.error('[Encode] Error:', e)
