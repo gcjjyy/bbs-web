@@ -1,7 +1,7 @@
 import io from 'socket.io-client'
 import { Buffer } from 'buffer'
-import { resetTerminalState, terminalState } from './useTerminalState'
-import { write } from './useTerminalEmulation'
+import { resetTerminalState, terminalState } from './state'
+import { write } from './emulation'
 import type { RefObject, Dispatch, SetStateAction } from 'react'
 
 const debug = require('debug')('bbs-web')

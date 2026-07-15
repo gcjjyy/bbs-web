@@ -9,8 +9,8 @@ import {
   appendTerminalHistory,
   setTerminalHistory,
   terminalState
-} from './useTerminalState'
-import { scheduleSmartMouseRebuild } from './useSmartMouse'
+} from './state'
+import { scheduleSmartMouseRebuild } from './smartMouse'
 import type { RefObject } from 'react'
 import {
   getTerminalCanvasFont,

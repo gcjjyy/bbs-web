@@ -8,7 +8,7 @@
 
 import { useState, useRef, useCallback } from 'react'
 import { formatBytes, createProgressThrottle } from '../utils/helpers'
-import { terminalState } from './useTerminalState'
+import { terminalState } from '../terminal/state'
 import { ZmodemReceiver, ZmodemSender, encodeCancelSequence } from '../zmodem'
 import type { FileInfo, FileToSend } from '../zmodem'
 

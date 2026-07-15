@@ -3,7 +3,7 @@ import {
   FONT_HEIGHT,
   SMART_MOUSE_BORDER
 } from '../constants/terminalConfig'
-import { terminalState } from './useTerminalState'
+import { terminalState } from './state'
 import type { SmartMousePattern, SmartMouseLink } from '../types/terminal'
 import type { RefObject } from 'react'
 

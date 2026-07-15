@@ -18,13 +18,13 @@ import {
   NotificationModal,
   FileSelectModal
 } from './components/modals'
-import { terminalState, initializeColors } from './hooks/useTerminalState'
-import { handleMouseMove, handleSmartMouseClick, rebuildSmartMouse } from './hooks/useSmartMouse'
+import { terminalState, initializeColors } from './terminal/state'
+import { handleMouseMove, handleSmartMouseClick, rebuildSmartMouse } from './terminal/smartMouse'
 import {
   moveCommandInputPosition,
   replayTerminalHistory
-} from './hooks/useTerminalEmulation'
-import { setupNetwork, enterCommand, disconnectSocket, setDataInterceptor } from './hooks/useSocketIO'
+} from './terminal/emulation'
+import { setupNetwork, enterCommand, disconnectSocket, setDataInterceptor } from './terminal/network'
 import useZmodem from './hooks/useZmodem'
 import type { ThemeName } from './themes'
 import { getTerminalCanvasFont } from './utils/terminalFont'

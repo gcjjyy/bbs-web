@@ -1,4 +1,3 @@
-import { useRef, RefObject } from 'react'
 import {
   CANVAS_WIDTH,
   FONT_WIDTH,
@@ -80,26 +79,3 @@ export const resetTerminalState = (): void => {
   terminalState.windowBottom = SCREEN_HEIGHT - 1
 }
 
-// Return type for useTerminalState hook
-export interface UseTerminalStateReturn {
-  terminalRef: RefObject<HTMLCanvasElement | null>
-  smartMouseBoxRef: RefObject<HTMLDivElement | null>
-  commandRef: RefObject<HTMLInputElement | null>
-  fileToUploadRef: RefObject<HTMLInputElement | null>
-}
-
-function useTerminalState(): UseTerminalStateReturn {
-  const terminalRef = useRef<HTMLCanvasElement | null>(null)
-  const smartMouseBoxRef = useRef<HTMLDivElement | null>(null)
-  const commandRef = useRef<HTMLInputElement | null>(null)
-  const fileToUploadRef = useRef<HTMLInputElement | null>(null)
-
-  return {
-    terminalRef,
-    smartMouseBoxRef,
-    commandRef,
-    fileToUploadRef
-  }
-}
-
-export default useTerminalState

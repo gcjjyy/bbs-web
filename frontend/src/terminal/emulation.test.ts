@@ -1,9 +1,9 @@
-import { write, replayTerminalHistory } from './useTerminalEmulation'
+import { write, replayTerminalHistory } from './emulation'
 import {
   MAX_TERMINAL_HISTORY_CHARS,
   resetTerminalState,
   terminalState
-} from './useTerminalState'
+} from './state'
 
 const terminalRef = {
   current: {

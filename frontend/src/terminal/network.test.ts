@@ -38,8 +38,8 @@ jest.mock('socket.io-client', () => ({
 
 import { TextEncoder } from 'util'
 import io from 'socket.io-client'
-import { setupNetwork } from './useSocketIO'
-import { resetTerminalState, terminalState } from './useTerminalState'
+import { setupNetwork } from './network'
+import { resetTerminalState, terminalState } from './state'
 
 const ioMock = io as unknown as jest.Mock
 
