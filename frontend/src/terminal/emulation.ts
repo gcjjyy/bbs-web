@@ -197,15 +197,22 @@ const applyEscape = (
 
   if (!ctx2d || !escape) return
 
+  // VT100 keypad mode sequences are complete two-byte escapes. We do not
+  // emulate the numeric keypad, but consuming them here keeps following text
+  // from being mistaken for part of the escape sequence.
+  if (escape === '\x1b=' || escape === '\x1b>') return
+
   // Only CSI sequences (ESC [ ... final-char) are handled
   if (escape.charAt(1) !== '[') return
 
   const finalChar = escape.charAt(escape.length - 1)
   let paramStr = escape.slice(2, -1)
 
-  // '=' marks this project's private sequences (colors, block chars)
-  const isPrivate = paramStr.startsWith('=')
-  if (isPrivate) {
+  // '=' marks this project's private sequences (colors, block chars).
+  // '?' marks standard DEC private modes.
+  const isProjectPrivate = paramStr.startsWith('=')
+  const isDecPrivate = paramStr.startsWith('?')
+  if (isProjectPrivate || isDecPrivate) {
     paramStr = paramStr.slice(1)
   }
 
@@ -219,7 +226,7 @@ const applyEscape = (
   // Movement distance: missing or 0 means 1
   const distance = (): number => param(0, 1) || 1
 
-  if (isPrivate) {
+  if (isProjectPrivate) {
     switch (finalChar) {
       case 'B': // Block character: ESC[=9XXB
         if (params[0] >= 900 && params[0] <= 999) {
@@ -232,6 +239,13 @@ const applyEscape = (
       case 'G': // Background color
         attr.backgroundColor = param(0, 1)
         break
+    }
+    return
+  }
+
+  if (isDecPrivate) {
+    if ((finalChar === 'h' || finalChar === 'l') && params.includes(1)) {
+      terminalState.applicationCursorKeys = finalChar === 'h'
     }
     return
   }
@@ -341,6 +355,12 @@ const applyEscape = (
 
 const endOfEscape = (): boolean => {
   if (!terminalState.escape) return false
+  if (
+    terminalState.escape === '\x1b=' ||
+    terminalState.escape === '\x1b>'
+  ) {
+    return true
+  }
   const lastChar = terminalState.escape.charAt(terminalState.escape.length - 1)
   return '@ABCDEFGHJKSfhlmprsu'.indexOf(lastChar) !== -1
 }
@@ -481,6 +501,7 @@ export const replayTerminalHistory = (
   terminalState.cursor = { x: 0, y: 0 }
   terminalState.cursorStore = { x: 0, y: 0 }
   terminalState.attr = { textColor: 15, backgroundColor: 1, reversed: false }
+  terminalState.applicationCursorKeys = false
   terminalState.windowTop = 0
   terminalState.windowBottom = SCREEN_HEIGHT - 1
 

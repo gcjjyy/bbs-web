@@ -4,7 +4,13 @@ import { Buffer } from 'buffer'
 import debugFactory from 'debug'
 import cookies from 'browser-cookies'
 import copy from 'copy-to-clipboard'
-import { useEffect, useRef, useState, ChangeEvent } from 'react'
+import {
+  useEffect,
+  useRef,
+  useState,
+  ChangeEvent,
+  type KeyboardEvent
+} from 'react'
 import LoadingModal from './LoadingModal'
 import {
   BOX_DRAWING_FONT,
@@ -25,7 +31,17 @@ import {
   moveCommandInputPosition,
   replayTerminalHistory
 } from './terminal/emulation'
-import { setupNetwork, enterCommand, disconnectSocket, setDataInterceptor } from './terminal/network'
+import {
+  setupNetwork,
+  enterCommand,
+  disconnectSocket,
+  sendTerminalInput,
+  setDataInterceptor
+} from './terminal/network'
+import {
+  getTerminalKeySequence,
+  normalizePastedText
+} from './terminal/input'
 import useZmodem from './hooks/useZmodem'
 import type { ThemeName } from './themes'
 import { getTerminalCanvasFont } from './utils/terminalFont'
@@ -51,6 +67,8 @@ function App() {
   const smartMouseBoxRef = useRef<HTMLDivElement>(null)
   const commandRef = useRef<HTMLInputElement>(null)
   const fileToUploadRef = useRef<HTMLInputElement>(null)
+  const isComposingRef = useRef(false)
+  const ignoredCompositionRef = useRef<string | null>(null)
 
   // Notification handlers
   const showNotification = (title: string, text: string): void => {
@@ -151,10 +169,63 @@ function App() {
     moveCommandInputPosition(terminalRef, commandRef)
   }
 
-  const onKeyUp = (key: string): void => {
-    if (key === 'Enter') {
-      enterCommand(command, setCommand)
+  const onCommandInput = (
+    value: string,
+    eventIsComposing: boolean
+  ): void => {
+    setCommand(value)
+
+    if (isComposingRef.current || eventIsComposing) return
+
+    if (ignoredCompositionRef.current === value) {
+      ignoredCompositionRef.current = null
+      setCommand('')
+      return
     }
+
+    ignoredCompositionRef.current = null
+    sendTerminalInput(value)
+    setCommand('')
+  }
+
+  const onCompositionStart = (): void => {
+    isComposingRef.current = true
+    ignoredCompositionRef.current = null
+  }
+
+  const onCompositionEnd = (value: string): void => {
+    isComposingRef.current = false
+    ignoredCompositionRef.current = value
+    sendTerminalInput(value)
+    setCommand('')
+  }
+
+  const onKeyDown = (event: KeyboardEvent<HTMLInputElement>): void => {
+    const sequence = getTerminalKeySequence(
+      {
+        key: event.key,
+        code: event.code,
+        ctrlKey: event.ctrlKey,
+        altKey: event.altKey,
+        shiftKey: event.shiftKey,
+        metaKey: event.metaKey,
+        isComposing:
+          isComposingRef.current ||
+          event.nativeEvent.isComposing ||
+          event.keyCode === 229,
+        altGraphKey: event.getModifierState('AltGraph')
+      },
+      terminalState.applicationCursorKeys
+    )
+
+    if (sequence === null) return
+
+    event.preventDefault()
+    sendTerminalInput(sequence)
+  }
+
+  const onPaste = (text: string): void => {
+    sendTerminalInput(normalizePastedText(text))
   }
 
   const mouseMove = (clientX: number, clientY: number): void => {
@@ -225,8 +296,11 @@ function App() {
         onTerminalClick={focusCommand}
         onMouseMove={mouseMove}
         onSmartMouseClick={smartMouseClicked}
-        onCommandChange={setCommand}
-        onKeyUp={onKeyUp}
+        onCommandInput={onCommandInput}
+        onCompositionStart={onCompositionStart}
+        onCompositionEnd={onCompositionEnd}
+        onKeyDown={onKeyDown}
+        onPaste={onPaste}
       />
 
       <div className="text-center mt-3">

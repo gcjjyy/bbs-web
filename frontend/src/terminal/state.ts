@@ -25,6 +25,7 @@ export const terminalState: TerminalState = {
   lastPageTextPos: [],
   smartMouse: [],
   smartMouseCmd: null,
+  applicationCursorKeys: false,
   windowTop: 0,
   windowBottom: SCREEN_HEIGHT - 1,
   COLOR: []
@@ -75,7 +76,7 @@ export const resetTerminalState = (): void => {
   terminalState.lastPageTextPos = []
   terminalState.smartMouse = []
   terminalState.smartMouseCmd = null
+  terminalState.applicationCursorKeys = false
   terminalState.windowTop = 0
   terminalState.windowBottom = SCREEN_HEIGHT - 1
 }
-

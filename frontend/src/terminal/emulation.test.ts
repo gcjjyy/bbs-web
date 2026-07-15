@@ -54,6 +54,22 @@ test('replaying terminal history redraws without appending duplicate history', (
   expect(terminalState.lastPageTextPos).toHaveLength(5)
 })
 
+test('tracks VT100 application cursor mode', () => {
+  write('\x1b[?1h', terminalRef, smartMouseBoxRef, commandRef)
+  expect(terminalState.applicationCursorKeys).toBe(true)
+
+  write('\x1b[?1l', terminalRef, smartMouseBoxRef, commandRef)
+  expect(terminalState.applicationCursorKeys).toBe(false)
+})
+
+test('consumes VT100 keypad mode without swallowing following text', () => {
+  write('\x1b=hello', terminalRef, smartMouseBoxRef, commandRef)
+
+  expect(terminalState.escape).toBeNull()
+  expect(terminalState.lastPageText).toContain('hello')
+  expect(terminalState.cursor.x).toBe(5)
+})
+
 test('terminal history keeps text and positions trimmed together', () => {
   const text = 'x'.repeat(MAX_TERMINAL_HISTORY_CHARS + 50)
 

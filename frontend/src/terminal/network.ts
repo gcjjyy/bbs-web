@@ -117,6 +117,12 @@ export const enterCommand = (
   setCommand('')
 }
 
+export const sendTerminalInput = (data: string): void => {
+  if (data) {
+    terminalState.io?.emit('data', data)
+  }
+}
+
 export const disconnectSocket = (): void => {
   if (!terminalState.io) return
 

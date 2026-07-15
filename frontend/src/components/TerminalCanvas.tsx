@@ -1,4 +1,10 @@
-import { forwardRef, RefObject } from 'react'
+import {
+  forwardRef,
+  RefObject,
+  type CompositionEvent,
+  type FormEvent,
+  type KeyboardEvent
+} from 'react'
 import { CANVAS_WIDTH, CANVAS_HEIGHT } from '../constants/terminalConfig'
 
 interface TerminalCanvasProps {
@@ -9,8 +15,11 @@ interface TerminalCanvasProps {
   onTerminalClick: () => void
   onMouseMove: (clientX: number, clientY: number) => void
   onSmartMouseClick: () => void
-  onCommandChange: (value: string) => void
-  onKeyUp: (key: string) => void
+  onCommandInput: (value: string, isComposing: boolean) => void
+  onCompositionStart: () => void
+  onCompositionEnd: (value: string) => void
+  onKeyDown: (event: KeyboardEvent<HTMLInputElement>) => void
+  onPaste: (text: string) => void
 }
 
 const TerminalCanvas = forwardRef<HTMLCanvasElement, TerminalCanvasProps>(
@@ -23,8 +32,11 @@ const TerminalCanvas = forwardRef<HTMLCanvasElement, TerminalCanvasProps>(
       onTerminalClick,
       onMouseMove,
       onSmartMouseClick,
-      onCommandChange,
-      onKeyUp
+      onCommandInput,
+      onCompositionStart,
+      onCompositionEnd,
+      onKeyDown,
+      onPaste
     },
     ref
   ) {
@@ -51,9 +63,27 @@ const TerminalCanvas = forwardRef<HTMLCanvasElement, TerminalCanvasProps>(
             commandType === 'password' ? 'command command-password' : 'command'
           }
           value={command}
-          onChange={(event) => onCommandChange(event.target.value)}
-          onKeyUp={(event) => onKeyUp(event.key)}
+          aria-label="터미널 입력"
+          onInput={(event: FormEvent<HTMLInputElement>) => {
+            const nativeEvent = event.nativeEvent as InputEvent
+            onCommandInput(event.currentTarget.value, nativeEvent.isComposing)
+          }}
+          onCompositionStart={onCompositionStart}
+          onCompositionEnd={(event: CompositionEvent<HTMLInputElement>) =>
+            onCompositionEnd(event.currentTarget.value)
+          }
+          onKeyDown={onKeyDown}
+          onPaste={(event) => {
+            const text = event.clipboardData.getData('text')
+            if (text) {
+              event.preventDefault()
+              onPaste(text)
+            }
+          }}
           autoComplete="off"
+          autoCapitalize="none"
+          autoCorrect="off"
+          spellCheck={false}
         />
       </div>
     )

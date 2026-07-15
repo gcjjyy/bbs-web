@@ -45,6 +45,7 @@ export interface TerminalState {
   lastPageTextPos: Cursor[]
   smartMouse: SmartMouseLink[]
   smartMouseCmd: string | null
+  applicationCursorKeys: boolean
   windowTop: number
   windowBottom: number
   COLOR: string[]
