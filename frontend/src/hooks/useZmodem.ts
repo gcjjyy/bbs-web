@@ -20,6 +20,55 @@ const SZ_DETECT_PATTERN = /B0100/
 // complete a pattern split across two data events
 const DETECT_TAIL_LENGTH = 14
 
+interface SessionState {
+  isActive: boolean
+  mode: 'idle' | 'receiving' | 'sending'
+}
+
+interface DownloadState {
+  dialog: boolean
+  text: string
+  progress: string
+  progressNow: number
+  progressLabel: string
+  finished: boolean
+  fileData: Uint8Array | null
+  fileName: string | null
+}
+
+interface UploadState {
+  fileSelectDialog: boolean
+  dialog: boolean
+  text: string
+  progress: string
+  progressNow: number
+  progressLabel: string
+  finished: boolean
+}
+
+const IDLE_SESSION: SessionState = { isActive: false, mode: 'idle' }
+
+const INITIAL_DOWNLOAD: DownloadState = {
+  dialog: false,
+  text: '',
+  progress: '',
+  progressNow: 0,
+  progressLabel: '',
+  finished: false,
+  fileData: null,
+  fileName: null
+}
+
+const INITIAL_UPLOAD: UploadState = {
+  fileSelectDialog: false,
+  dialog: false,
+  text: '',
+  progress: '',
+  progressNow: 0,
+  progressLabel: '',
+  finished: false
+}
+
 export interface ZmodemHookState {
   // Session state
   isActive: boolean
@@ -71,28 +120,10 @@ export function useZmodem(
   const receiverRef = useRef<ZmodemReceiver | null>(null)
   const senderRef = useRef<ZmodemSender | null>(null)
 
-  // State
-  const [isActive, setIsActive] = useState(false)
-  const [mode, setMode] = useState<'idle' | 'receiving' | 'sending'>('idle')
-
-  // Download state
-  const [rzDiag, setRzDiag] = useState(false)
-  const [rzDiagText, setRzDiagText] = useState('')
-  const [rzProgress, setRzProgress] = useState('')
-  const [rzProgressNow, setRzProgressNow] = useState(0)
-  const [rzProgressLabel, setRzProgressLabel] = useState('')
-  const [rzFinished, setRzFinished] = useState(false)
-  const [rzFileData, setRzFileData] = useState<Uint8Array | null>(null)
-  const [rzFileName, setRzFileName] = useState<string | null>(null)
-
-  // Upload state
-  const [szFileSelectDiag, setSzFileSelectDiag] = useState(false)
-  const [szDiag, setSzDiag] = useState(false)
-  const [szDiagText, setSzDiagText] = useState('')
-  const [szProgress, setSzProgress] = useState('')
-  const [szProgressNow, setSzProgressNow] = useState(0)
-  const [szProgressLabel, setSzProgressLabel] = useState('')
-  const [szFinished, setSzFinished] = useState(false)
+  // State, grouped by concern
+  const [session, setSession] = useState<SessionState>(IDLE_SESSION)
+  const [rz, setRz] = useState<DownloadState>(INITIAL_DOWNLOAD)
+  const [sz, setSz] = useState<UploadState>(INITIAL_UPLOAD)
 
   // Store initial ZRINIT data when upload trigger is detected
   const pendingZrinitRef = useRef<Uint8Array | null>(null)
@@ -117,16 +148,22 @@ export function useZmodem(
 
       onFileStart: (info: FileInfo) => {
         console.log(`[ZMODEM] File start: ${info.name}, size=${info.size}`)
-        setRzDiagText(`파일 수신 중: ${info.name}`)
-        setRzFileName(info.name)
+        setRz((prev) => ({
+          ...prev,
+          text: `파일 수신 중: ${info.name}`,
+          fileName: info.name
+        }))
       },
 
       onProgress: (received: number, total: number) => {
         if (total > 0 && progressThrottleRef.current(received, total)) {
           const pct = Math.floor((received / total) * 100)
-          setRzProgressNow(pct)
-          setRzProgressLabel(`${pct}%`)
-          setRzProgress(`${formatBytes(received)} / ${formatBytes(total)}`)
+          setRz((prev) => ({
+            ...prev,
+            progressNow: pct,
+            progressLabel: `${pct}%`,
+            progress: `${formatBytes(received)} / ${formatBytes(total)}`
+          }))
         }
       },
 
@@ -137,20 +174,22 @@ export function useZmodem(
         const dataCopy = new Uint8Array(data.length)
         dataCopy.set(data)
 
-        setRzFileData(dataCopy)
-        setRzFileName(info.name)
-        setRzFinished(true)
-        setRzProgressNow(100)
-        setRzProgressLabel('100%')
-        setRzProgress(`${formatBytes(data.length)} / ${formatBytes(data.length)}`)
-        setRzDiagText('다운로드 완료!')
+        setRz((prev) => ({
+          ...prev,
+          fileData: dataCopy,
+          fileName: info.name,
+          finished: true,
+          progressNow: 100,
+          progressLabel: '100%',
+          progress: `${formatBytes(data.length)} / ${formatBytes(data.length)}`,
+          text: '다운로드 완료!'
+        }))
       },
 
       onSessionComplete: () => {
         console.log('[ZMODEM] Session complete')
         receiverRef.current = null
-        setIsActive(false)
-        setMode('idle')
+        setSession(IDLE_SESSION)
         // Notify server that ZMODEM session ended
         if (terminalState.io) {
           terminalState.io.emit('zmodem-end')
@@ -161,9 +200,8 @@ export function useZmodem(
         console.error('[ZMODEM] Error:', error)
         receiverRef.current = null
         showNotification('ZMODEM 오류', error)
-        setIsActive(false)
-        setMode('idle')
-        setRzDiag(false)
+        setSession(IDLE_SESSION)
+        setRz((prev) => ({ ...prev, dialog: false }))
       }
     })
 
@@ -184,9 +222,12 @@ export function useZmodem(
       onProgress: (sent: number, total: number) => {
         if (total > 0 && progressThrottleRef.current(sent, total)) {
           const pct = Math.floor((sent / total) * 100)
-          setSzProgressNow(pct)
-          setSzProgressLabel(`${pct}%`)
-          setSzProgress(`${formatBytes(sent)} / ${formatBytes(total)}`)
+          setSz((prev) => ({
+            ...prev,
+            progressNow: pct,
+            progressLabel: `${pct}%`,
+            progress: `${formatBytes(sent)} / ${formatBytes(total)}`
+          }))
         }
       },
 
@@ -197,10 +238,8 @@ export function useZmodem(
       onSessionComplete: () => {
         console.log('[ZMODEM] Send session complete')
         senderRef.current = null
-        setSzFinished(true)
-        setSzDiagText('업로드 완료!')
-        setIsActive(false)
-        setMode('idle')
+        setSz((prev) => ({ ...prev, finished: true, text: '업로드 완료!' }))
+        setSession(IDLE_SESSION)
         // Notify server that ZMODEM session ended
         if (terminalState.io) {
           terminalState.io.emit('zmodem-end')
@@ -211,9 +250,8 @@ export function useZmodem(
         console.error('[ZMODEM] Send error:', error)
         senderRef.current = null
         showNotification('ZMODEM 오류', error)
-        setIsActive(false)
-        setMode('idle')
-        setSzDiag(false)
+        setSession(IDLE_SESSION)
+        setSz((prev) => ({ ...prev, dialog: false }))
       }
     })
 
@@ -252,16 +290,8 @@ export function useZmodem(
       const receiver = createReceiver()
       receiverRef.current = receiver
 
-      setIsActive(true)
-      setMode('receiving')
-      setRzDiag(true)
-      setRzFinished(false)
-      setRzProgressNow(0)
-      setRzProgressLabel('')
-      setRzProgress('')
-      setRzDiagText('ZMODEM 다운로드 대기 중...')
-      setRzFileData(null)
-      setRzFileName(null)
+      setSession({ isActive: true, mode: 'receiving' })
+      setRz({ ...INITIAL_DOWNLOAD, dialog: true, text: 'ZMODEM 다운로드 대기 중...' })
 
       // Start receiver and process initial data
       receiver.start()
@@ -277,7 +307,7 @@ export function useZmodem(
       // Store the initial ZRINIT data to feed to sender later
       pendingZrinitRef.current = new Uint8Array(bytes)
       // Show file selection dialog
-      setSzFileSelectDiag(true)
+      setSz((prev) => ({ ...prev, fileSelectDialog: true }))
       // Don't consume the data - let the user see the prompt
       return false
     }
@@ -293,16 +323,8 @@ export function useZmodem(
       return
     }
 
-    // Close file select dialog
-    setSzFileSelectDiag(false)
-
-    // Show upload progress dialog
-    setSzDiag(true)
-    setSzFinished(false)
-    setSzProgressNow(0)
-    setSzProgressLabel('')
-    setSzProgress('')
-    setSzDiagText('파일 준비 중...')
+    // Close file select dialog, show upload progress dialog
+    setSz({ ...INITIAL_UPLOAD, dialog: true, text: '파일 준비 중...' })
 
     try {
       // Read files into memory and get EUC-KR encoded filenames from server
@@ -338,9 +360,8 @@ export function useZmodem(
       const sender = createSender()
       senderRef.current = sender
 
-      setIsActive(true)
-      setMode('sending')
-      setSzDiagText(`업로드 중: ${filesToSend[0].name}`)
+      setSession({ isActive: true, mode: 'sending' })
+      setSz((prev) => ({ ...prev, text: `업로드 중: ${filesToSend[0].name}` }))
 
       // Start sending
       sender.start(filesToSend)
@@ -353,7 +374,7 @@ export function useZmodem(
     } catch (error) {
       console.error('[ZMODEM] Upload error:', error)
       showNotification('오류', '파일을 읽는 중 오류가 발생했습니다.')
-      setSzDiag(false)
+      setSz((prev) => ({ ...prev, dialog: false }))
     }
   }, [showNotification, createSender])
 
@@ -370,20 +391,14 @@ export function useZmodem(
 
     receiverRef.current = null
     senderRef.current = null
-    setIsActive(false)
-    setMode('idle')
-    setRzDiag(false)
-    setSzDiag(false)
+    setSession(IDLE_SESSION)
+    setRz((prev) => ({ ...prev, dialog: false }))
+    setSz((prev) => ({ ...prev, dialog: false }))
   }, [])
 
   // Close download dialog
   const closeDownloadDialog = useCallback(() => {
-    setRzDiag(false)
-    setRzFinished(false)
-    setRzProgressNow(0)
-    setRzProgressLabel('')
-    setRzFileData(null)
-    setRzFileName(null)
+    setRz(INITIAL_DOWNLOAD)
     receiverRef.current = null
     // Send enter to refresh terminal screen
     if (terminalState.io) {
@@ -394,10 +409,10 @@ export function useZmodem(
 
   // Close upload dialog
   const closeUploadDialog = useCallback(() => {
-    setSzDiag(false)
-    setSzFinished(false)
-    setSzProgressNow(0)
-    setSzProgressLabel('')
+    setSz((prev) => ({
+      ...INITIAL_UPLOAD,
+      fileSelectDialog: prev.fileSelectDialog
+    }))
     senderRef.current = null
     // Send enter to refresh terminal screen
     if (terminalState.io) {
@@ -408,29 +423,29 @@ export function useZmodem(
 
   // Close file select dialog (called when user clicks "파일 선택" button)
   const closeFileSelectDialog = useCallback(() => {
-    setSzFileSelectDiag(false)
+    setSz((prev) => ({ ...prev, fileSelectDialog: false }))
     // Don't clear pendingZrinitRef here - it's needed by startUpload
     focusCommand()
   }, [focusCommand])
 
   // Cancel file select (called when user clicks "취소" button)
   const cancelFileSelect = useCallback(() => {
-    setSzFileSelectDiag(false)
+    setSz((prev) => ({ ...prev, fileSelectDialog: false }))
     pendingZrinitRef.current = null
     focusCommand()
   }, [focusCommand])
 
   // Download the received file
   const downloadFile = useCallback(() => {
-    if (rzFileData && rzFileName) {
+    if (rz.fileData && rz.fileName) {
       // Create blob and download
-      const buffer = new ArrayBuffer(rzFileData.length)
-      new Uint8Array(buffer).set(rzFileData)
+      const buffer = new ArrayBuffer(rz.fileData.length)
+      new Uint8Array(buffer).set(rz.fileData)
       const blob = new Blob([buffer], { type: 'application/octet-stream' })
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = rzFileName
+      a.download = rz.fileName
       document.body.appendChild(a)
       a.click()
       document.body.removeChild(a)
@@ -440,32 +455,32 @@ export function useZmodem(
         terminalState.io.emit('data', '\r\n')
       }
     }
-  }, [rzFileData, rzFileName])
+  }, [rz.fileData, rz.fileName])
 
   // Check if ZMODEM is active
   const isZmodemActive = useCallback(() => {
-    return isActive
-  }, [isActive])
+    return session.isActive
+  }, [session.isActive])
 
   return {
     state: {
-      isActive,
-      mode,
-      rzDiag,
-      rzDiagText,
-      rzProgress,
-      rzProgressNow,
-      rzProgressLabel,
-      rzFinished,
-      rzFileData,
-      rzFileName,
-      szFileSelectDiag,
-      szDiag,
-      szDiagText,
-      szProgress,
-      szProgressNow,
-      szProgressLabel,
-      szFinished
+      isActive: session.isActive,
+      mode: session.mode,
+      rzDiag: rz.dialog,
+      rzDiagText: rz.text,
+      rzProgress: rz.progress,
+      rzProgressNow: rz.progressNow,
+      rzProgressLabel: rz.progressLabel,
+      rzFinished: rz.finished,
+      rzFileData: rz.fileData,
+      rzFileName: rz.fileName,
+      szFileSelectDiag: sz.fileSelectDialog,
+      szDiag: sz.dialog,
+      szDiagText: sz.text,
+      szProgress: sz.progress,
+      szProgressNow: sz.progressNow,
+      szProgressLabel: sz.progressLabel,
+      szFinished: sz.finished
     },
     processIncomingData,
     startUpload,
