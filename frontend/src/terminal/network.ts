@@ -1,10 +1,11 @@
+import debugFactory from 'debug'
 import io from 'socket.io-client'
 import { Buffer } from 'buffer'
 import { resetTerminalState, terminalState } from './state'
 import { write } from './emulation'
 import type { RefObject, Dispatch, SetStateAction } from 'react'
 
-const debug = require('debug')('bbs-web')
+const debug = debugFactory('bbs-web')
 
 // Data interceptor type - returns true if data was consumed
 export type DataInterceptor = (data: ArrayBuffer) => boolean

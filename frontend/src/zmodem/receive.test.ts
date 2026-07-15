@@ -3,7 +3,7 @@ import { encodeBinaryHeader32, encodeDataSubpacket32 } from './encode'
 import { ZmodemParser, type ZmodemHeader } from './decode'
 import { ZmodemReceiver, type FileInfo } from './receive'
 
-const { TextDecoder: NodeTextDecoder } = require('util')
+import { TextDecoder as NodeTextDecoder } from 'util'
 
 beforeAll(() => {
   Object.assign(global, { TextDecoder: NodeTextDecoder })

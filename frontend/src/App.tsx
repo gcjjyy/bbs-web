@@ -1,6 +1,7 @@
 import './App.css'
 import './App.scss'
 import { Buffer } from 'buffer'
+import debugFactory from 'debug'
 import cookies from 'browser-cookies'
 import copy from 'copy-to-clipboard'
 import { useEffect, useRef, useState, ChangeEvent } from 'react'
@@ -33,7 +34,7 @@ Buffer.from('anything', 'base64')
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 ;(window as any).Buffer = (window as any).Buffer || Buffer
 
-const debug = require('debug')('bbs-web')
+const debug = debugFactory('bbs-web')
 
 function App() {
   const [command, setCommand] = useState<string>('')

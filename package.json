@@ -5,12 +5,12 @@
   "author": "gcjjyy <gcjjyy@gmail.com>",
   "license": "MIT",
   "scripts": {
-    "serve": "cd frontend && npm install --legacy-peer-deps && npm run build && cd ../server && bun install && bun run start",
-    "dev:frontend": "cd frontend && npm start",
+    "serve": "cd frontend && npm install && npm run build && cd ../server && bun install && bun run start",
+    "dev:frontend": "cd frontend && npm run dev",
     "dev:server": "cd server && bun run dev",
     "build": "cd frontend && npm run build",
     "verify": "cd frontend && npm run test:ci && npm run build && cd ../server && bun run test && bun run typecheck",
-    "rebuild": "cd frontend && rm -rf build node_modules && npm install --legacy-peer-deps && npm run build && cd ../server && rm -rf node_modules && bun install",
-    "install:all": "cd frontend && npm install --legacy-peer-deps && cd ../server && bun install"
+    "rebuild": "cd frontend && rm -rf build node_modules && npm install && npm run build && cd ../server && rm -rf node_modules && bun install",
+    "install:all": "cd frontend && npm install && cd ../server && bun install"
   }
 }

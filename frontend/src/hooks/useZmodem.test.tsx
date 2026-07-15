@@ -1,7 +1,8 @@
+import { vi } from 'vitest'
 import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { TextDecoder } from 'util'
-import type { UseZmodemReturn } from './useZmodem'
+import useZmodem, { type UseZmodemReturn } from './useZmodem'
 
 const testGlobal = globalThis as typeof globalThis & {
   IS_REACT_ACT_ENVIRONMENT?: boolean
@@ -15,33 +16,44 @@ type ReceiverCallbacks = {
   onError: (error: string) => void
 }
 
-const mockReceiverInstances: MockZmodemReceiver[] = []
+const { mockReceiverInstances, MockZmodemReceiver, MockZmodemSender } =
+  vi.hoisted(() => {
+    const mockReceiverInstances: Array<{
+      callbacks: {
+        onSend: (data: Uint8Array) => void
+        onSessionComplete: () => void
+        onError: (error: string) => void
+      }
+      start: ReturnType<typeof vi.fn>
+      processData: ReturnType<typeof vi.fn>
+    }> = []
 
-class MockZmodemReceiver {
-  callbacks: ReceiverCallbacks
-  start = jest.fn()
-  processData = jest.fn()
+    class MockZmodemReceiver {
+      callbacks: (typeof mockReceiverInstances)[number]['callbacks']
+      start = vi.fn()
+      processData = vi.fn()
 
-  constructor(callbacks: ReceiverCallbacks) {
-    this.callbacks = callbacks
-    mockReceiverInstances.push(this)
-  }
-}
+      constructor(
+        callbacks: (typeof mockReceiverInstances)[number]['callbacks']
+      ) {
+        this.callbacks = callbacks
+        mockReceiverInstances.push(this)
+      }
+    }
 
-class MockZmodemSender {
-  start = jest.fn()
-  processData = jest.fn()
-}
+    class MockZmodemSender {
+      start = vi.fn()
+      processData = vi.fn()
+    }
 
-jest.mock('../zmodem', () => ({
+    return { mockReceiverInstances, MockZmodemReceiver, MockZmodemSender }
+  })
+
+vi.mock('../zmodem', () => ({
   ZmodemReceiver: MockZmodemReceiver,
   ZmodemSender: MockZmodemSender,
   encodeCancelSequence: () => new Uint8Array([0x18])
 }))
-
-const useZmodem = require('./useZmodem').default as typeof import(
-  './useZmodem'
-).default
 
 function arrayBuffer(bytes: Uint8Array): ArrayBuffer {
   return bytes.buffer.slice(
@@ -63,7 +75,7 @@ function renderUseZmodem(): {
   let root: Root
 
   function TestComponent() {
-    result = useZmodem(jest.fn(), jest.fn())
+    result = useZmodem(vi.fn(), vi.fn())
     return null
   }
 

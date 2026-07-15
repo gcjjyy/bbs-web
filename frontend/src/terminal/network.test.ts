@@ -1,11 +1,12 @@
+import { vi, type Mock } from 'vitest'
 type Handler = (...args: unknown[]) => void
 
 interface FakeSocket {
   handlers: Record<string, Handler[]>
   on: (event: string, handler: Handler) => FakeSocket
-  emit: jest.Mock
-  removeAllListeners: jest.Mock
-  disconnect: jest.Mock
+  emit: Mock
+  removeAllListeners: Mock
+  disconnect: Mock
   fire: (event: string, ...args: unknown[]) => void
 }
 
@@ -17,9 +18,9 @@ function createFakeSocket(): FakeSocket {
       socket.handlers[event].push(handler)
       return socket
     },
-    emit: jest.fn(),
-    removeAllListeners: jest.fn(),
-    disconnect: jest.fn(),
+    emit: vi.fn(),
+    removeAllListeners: vi.fn(),
+    disconnect: vi.fn(),
     fire(event, ...args) {
       for (const handler of socket.handlers[event] ?? []) {
         handler(...args)
@@ -31,9 +32,9 @@ function createFakeSocket(): FakeSocket {
 
 let mockSocket: FakeSocket
 
-jest.mock('socket.io-client', () => ({
+vi.mock('socket.io-client', () => ({
   __esModule: true,
-  default: jest.fn()
+  default: vi.fn()
 }))
 
 import { TextEncoder } from 'util'
@@ -41,7 +42,7 @@ import io from 'socket.io-client'
 import { setupNetwork } from './network'
 import { resetTerminalState, terminalState } from './state'
 
-const ioMock = io as unknown as jest.Mock
+const ioMock = io as unknown as Mock
 
 const terminalRef = {
   current: {
@@ -54,7 +55,7 @@ const smartMouseBoxRef = { current: { style: {} } as HTMLDivElement }
 const commandRef = { current: { style: {} } as HTMLInputElement }
 
 const setup = () =>
-  setupNetwork(terminalRef, smartMouseBoxRef, commandRef, jest.fn(), jest.fn())
+  setupNetwork(terminalRef, smartMouseBoxRef, commandRef, vi.fn(), vi.fn())
 
 beforeEach(() => {
   mockSocket = createFakeSocket()
@@ -63,10 +64,10 @@ beforeEach(() => {
   terminalState.io = null
   terminalState.ctx2d = {
     fillStyle: '',
-    fillRect: jest.fn(),
-    fillText: jest.fn(),
-    measureText: jest.fn(() => ({ width: 8 })),
-    drawImage: jest.fn(),
+    fillRect: vi.fn(),
+    fillText: vi.fn(),
+    measureText: vi.fn(() => ({ width: 8 })),
+    drawImage: vi.fn(),
     canvas: terminalRef.current
   } as unknown as CanvasRenderingContext2D
   terminalState.COLOR = Array.from({ length: 16 }, (_, i) => String(i))

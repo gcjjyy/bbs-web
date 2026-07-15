@@ -1,3 +1,4 @@
+import { vi } from 'vitest'
 import { write, replayTerminalHistory } from './emulation'
 import {
   MAX_TERMINAL_HISTORY_CHARS,
@@ -29,12 +30,12 @@ const commandRef = {
 const createContext = () =>
   ({
     fillStyle: '',
-    fillRect: jest.fn(),
-    fillText: jest.fn(),
-    measureText: jest.fn((text: string) => ({ width: text.length * 8 })),
-    getImageData: jest.fn(() => ({})),
-    putImageData: jest.fn(),
-    drawImage: jest.fn(),
+    fillRect: vi.fn(),
+    fillText: vi.fn(),
+    measureText: vi.fn((text: string) => ({ width: text.length * 8 })),
+    getImageData: vi.fn(() => ({})),
+    putImageData: vi.fn(),
+    drawImage: vi.fn(),
     canvas: terminalRef.current
   }) as unknown as CanvasRenderingContext2D
 
@@ -81,7 +82,7 @@ test('scrolling copies the canvas with drawImage instead of pixel readback', () 
 })
 
 test('smart mouse rebuild is debounced until output settles', () => {
-  jest.useFakeTimers()
+  vi.useFakeTimers()
   try {
     write('12. 게시판', terminalRef, smartMouseBoxRef, commandRef)
     write(' 이동', terminalRef, smartMouseBoxRef, commandRef)
@@ -89,12 +90,12 @@ test('smart mouse rebuild is debounced until output settles', () => {
     // Not rebuilt synchronously during rapid output
     expect(terminalState.smartMouse).toHaveLength(0)
 
-    jest.runAllTimers()
+    vi.runAllTimers()
 
     expect(terminalState.smartMouse.length).toBeGreaterThan(0)
     expect(terminalState.smartMouse[0].command).toBe('12')
   } finally {
-    jest.useRealTimers()
+    vi.useRealTimers()
   }
 })
 

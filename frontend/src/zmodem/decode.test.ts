@@ -1,6 +1,10 @@
-import { ZCRCG } from './constants'
+import { ZCRCG, ZDATA } from './constants'
 import { ZmodemParser, type ZmodemData } from './decode'
-import { encodeDataSubpacket16, encodeDataSubpacket32 } from './encode'
+import {
+  encodeBinaryHeader32,
+  encodeDataSubpacket16,
+  encodeDataSubpacket32
+} from './encode'
 
 function parseDataSubpacket(
   packet: Uint8Array,
@@ -72,8 +76,6 @@ describe('ZmodemParser binary header CRC verification', () => {
   it('reports crcOk true when the CRC32 high byte is >= 0x80', () => {
     // ZDATA at position 0 produces a CRC32 with the sign bit set, which
     // regressed to a false mismatch when assembled as a signed integer
-    const { encodeBinaryHeader32 } = require('./encode')
-    const { ZDATA } = require('./constants')
     const headers: Array<{ crcOk: boolean; type: number }> = []
     const parser = new ZmodemParser({
       onHeader: (header) => headers.push(header)
