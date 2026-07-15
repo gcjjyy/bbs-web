@@ -1,6 +1,6 @@
 import io from 'socket.io-client'
 import { Buffer } from 'buffer'
-import { terminalState } from './useTerminalState'
+import { resetTerminalState, terminalState } from './useTerminalState'
 import { write } from './useTerminalEmulation'
 import type { RefObject, Dispatch, SetStateAction } from 'react'
 
@@ -33,9 +33,20 @@ export const setupNetwork = (
     transports: ['websocket', 'polling']
   })
 
+  // Socket.IO reconnects automatically, but the server opens a brand-new
+  // BBS session for every connection, so the previous screen no longer
+  // reflects reality
+  let wasDisconnected = false
+
   terminalState.io.on('connect', () => {
     debug('Connected')
     focusCommand()
+
+    const isReconnect = wasDisconnected
+    wasDisconnected = false
+    if (isReconnect) {
+      resetTerminalState()
+    }
 
     if (terminalState.ctx2d && terminalRef.current) {
       terminalState.ctx2d.fillStyle = terminalState.COLOR[terminalState.attr.backgroundColor]
@@ -50,11 +61,27 @@ export const setupNetwork = (
     // Clear whole webpage
     document.getElementsByTagName('body')[0].style.backgroundColor =
       terminalState.COLOR[terminalState.attr.backgroundColor]
+
+    if (isReconnect) {
+      write(
+        '재접속되었습니다. 새 세션이 시작됩니다.\r\n',
+        terminalRef,
+        smartMouseBoxRef,
+        commandRef
+      )
+    }
   })
 
   terminalState.io.on('disconnect', () => {
     debug('Disconnected')
+    wasDisconnected = true
     write('접속이 종료되었습니다.\r\n', terminalRef, smartMouseBoxRef, commandRef)
+  })
+
+  terminalState.io.on('bbs-error', (payload: { message?: string }) => {
+    const message = payload?.message ?? 'BBS 연결 오류'
+    debug(`BBS error: ${message}`)
+    write(`\r\n${message}\r\n`, terminalRef, smartMouseBoxRef, commandRef)
   })
 
   terminalState.io.on('data', (data: ArrayBuffer) => {
