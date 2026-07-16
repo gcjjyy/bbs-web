@@ -37,7 +37,7 @@ test('draws a visible cursor at the terminal position', () => {
   renderTerminalInputOverlay()
 
   expect(ctx.clearRect).toHaveBeenCalledWith(0, 0, 640, 528)
-  expect(ctx.fillRect).toHaveBeenCalledWith(24, 34, 3, 12)
+  expect(ctx.fillRect).toHaveBeenCalledWith(24, 32, 8, 16)
   expect(ctx.fillStyle).toBe('#ffff00')
 })
 
@@ -47,7 +47,7 @@ test('draws the active Korean composition and advances its cursor', () => {
   expect(ctx.fillRect).toHaveBeenCalledWith(24, 32, 16, 16)
   expect(ctx.fillText).toHaveBeenCalledWith('한', 24, 32)
   expect(ctx.fillRect).toHaveBeenCalledWith(24, 47, 16, 1)
-  expect(ctx.fillRect).toHaveBeenCalledWith(40, 34, 3, 12)
+  expect(ctx.fillRect).toHaveBeenCalledWith(40, 32, 8, 16)
 })
 
 test('wraps a wide composition preview at the right margin', () => {
@@ -56,10 +56,10 @@ test('wraps a wide composition preview at the right margin', () => {
   setTerminalComposition('한')
 
   expect(ctx.fillText).toHaveBeenCalledWith('한', 0, 32)
-  expect(ctx.fillRect).toHaveBeenCalledWith(16, 34, 3, 12)
+  expect(ctx.fillRect).toHaveBeenCalledWith(16, 32, 8, 16)
 })
 
-test('slowly blinks the cursor every 900 milliseconds', () => {
+test('blinks the cursor every 675 milliseconds', () => {
   setupTerminalInputOverlay(null)
   vi.useFakeTimers()
 
@@ -67,14 +67,14 @@ test('slowly blinks the cursor every 900 milliseconds', () => {
     setupTerminalInputOverlay(canvas)
     vi.clearAllMocks()
 
-    vi.advanceTimersByTime(900)
+    vi.advanceTimersByTime(675)
 
     expect(ctx.clearRect).toHaveBeenCalledWith(0, 0, 640, 528)
     expect(ctx.fillRect).not.toHaveBeenCalled()
 
-    vi.advanceTimersByTime(900)
+    vi.advanceTimersByTime(675)
 
-    expect(ctx.fillRect).toHaveBeenCalledWith(24, 34, 3, 12)
+    expect(ctx.fillRect).toHaveBeenCalledWith(24, 32, 8, 16)
   } finally {
     setupTerminalInputOverlay(null)
     vi.useRealTimers()

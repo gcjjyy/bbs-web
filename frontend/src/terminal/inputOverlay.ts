@@ -16,11 +16,11 @@ let compositionText = ''
 let cursorVisible = true
 let cursorBlinkTimer: ReturnType<typeof setInterval> | null = null
 
-const CURSOR_WIDTH = 3
-const CURSOR_HEIGHT = 12
+const CURSOR_WIDTH = 8
+const CURSOR_HEIGHT = 16
 const CURSOR_TOP_OFFSET = (FONT_HEIGHT - CURSOR_HEIGHT) / 2
 const CURSOR_COLOR = '#ffff00'
-const CURSOR_BLINK_INTERVAL_MS = 900
+const CURSOR_BLINK_INTERVAL_MS = 675
 
 const restartCursorBlink = (): void => {
   if (cursorBlinkTimer !== null) {
