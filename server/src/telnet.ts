@@ -6,11 +6,57 @@ import {
   BBS_PORT,
   WILL_OPTIONS,
   TERMINAL_TYPE,
+  TERMINAL_TYPE_IS,
+  TERMINAL_TYPE_SEND,
+  TERMINAL_NAME,
+  TERMINAL_COLUMNS,
+  TERMINAL_ROWS,
+  WINDOW_SIZE,
   EUC_KR_BLOCK_REPLACEMENTS
 } from './constants'
 import type { ExtendedSocket, TelnetSocketType } from './types'
 
 const log = (msg: string) => console.log(msg)
+
+type TelnetNegotiationSocket = Pick<
+  TelnetSocketType,
+  'writeWill' | 'writeWont' | 'writeSub'
+>
+
+export function handleTelnetDo(
+  tSocket: TelnetNegotiationSocket,
+  option: number
+): void {
+  if (!WILL_OPTIONS.includes(option)) {
+    tSocket.writeWont(option)
+    return
+  }
+
+  tSocket.writeWill(option)
+
+  if (option === WINDOW_SIZE) {
+    const windowSize = Buffer.alloc(4)
+    windowSize.writeUInt16BE(TERMINAL_COLUMNS, 0)
+    windowSize.writeUInt16BE(TERMINAL_ROWS, 2)
+    tSocket.writeSub(WINDOW_SIZE, windowSize)
+  }
+}
+
+export function handleTelnetSub(
+  tSocket: TelnetNegotiationSocket,
+  option: number,
+  data: Buffer
+): void {
+  if (option !== TERMINAL_TYPE || data[0] !== TERMINAL_TYPE_SEND) {
+    return
+  }
+
+  const terminalType = Buffer.concat([
+    Buffer.from([TERMINAL_TYPE_IS]),
+    Buffer.from(TERMINAL_NAME, 'ascii')
+  ])
+  tSocket.writeSub(TERMINAL_TYPE, terminalType)
+}
 
 function closeBBSConnection(ioSocket: ExtendedSocket, reason: string): void {
   if (ioSocket.bbsDisconnected) {
@@ -114,15 +160,16 @@ export function createTelnetConnection(ioSocket: ExtendedSocket): void {
       return
     }
 
-    if (WILL_OPTIONS.includes(option)) {
-      tSocket.writeWill(option)
+    handleTelnetDo(tSocket, option)
+  })
 
-      if (option === TERMINAL_TYPE) {
-        tSocket.writeSub(TERMINAL_TYPE, Buffer.from('VT100'))
-      }
-    } else {
-      tSocket.writeWont(option)
+  ioSocket.tSocket.on('sub', (opt: unknown, data: unknown) => {
+    const { tSocket } = ioSocket
+    if (!tSocket || !Buffer.isBuffer(data)) {
+      return
     }
+
+    handleTelnetSub(tSocket, opt as number, data)
   })
 
   ioSocket.tSocket.on('error', (error: unknown) => {

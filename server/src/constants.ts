@@ -14,6 +14,11 @@ export const ECHO = 1
 export const TERMINAL_TYPE = 24
 export const WINDOW_SIZE = 31
 export const WILL_OPTIONS = [ECHO, TERMINAL_TYPE, WINDOW_SIZE]
+export const TERMINAL_TYPE_IS = 0
+export const TERMINAL_TYPE_SEND = 1
+export const TERMINAL_NAME = 'vt100'
+export const TERMINAL_COLUMNS = 80
+export const TERMINAL_ROWS = 33
 
 // EUC-KR special block characters mapping
 // These non-standard characters are replaced with custom escape sequences
