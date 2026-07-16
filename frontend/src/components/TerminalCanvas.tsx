@@ -8,17 +8,16 @@ import {
 import { CANVAS_WIDTH, CANVAS_HEIGHT } from '../constants/terminalConfig'
 
 interface TerminalCanvasProps {
-  commandRef: RefObject<HTMLInputElement | null>
+  commandRef: RefObject<HTMLTextAreaElement | null>
   smartMouseBoxRef: RefObject<HTMLDivElement | null>
   command: string
-  commandType: string
   onTerminalClick: () => void
   onMouseMove: (clientX: number, clientY: number) => void
   onSmartMouseClick: () => void
   onCommandInput: (value: string, isComposing: boolean) => void
   onCompositionStart: () => void
   onCompositionEnd: (value: string) => void
-  onKeyDown: (event: KeyboardEvent<HTMLInputElement>) => void
+  onKeyDown: (event: KeyboardEvent<HTMLTextAreaElement>) => void
   onPaste: (text: string) => void
 }
 
@@ -28,7 +27,6 @@ const TerminalCanvas = forwardRef<HTMLCanvasElement, TerminalCanvasProps>(
       commandRef,
       smartMouseBoxRef,
       command,
-      commandType,
       onTerminalClick,
       onMouseMove,
       onSmartMouseClick,
@@ -56,20 +54,18 @@ const TerminalCanvas = forwardRef<HTMLCanvasElement, TerminalCanvasProps>(
           className="smart-mouse-box"
           onClick={onSmartMouseClick}
         />
-        <input
+        <textarea
           ref={commandRef}
-          type="text"
-          className={
-            commandType === 'password' ? 'command command-password' : 'command'
-          }
+          className="terminal-ime-input"
           value={command}
           aria-label="터미널 입력"
-          onInput={(event: FormEvent<HTMLInputElement>) => {
+          rows={1}
+          onInput={(event: FormEvent<HTMLTextAreaElement>) => {
             const nativeEvent = event.nativeEvent as InputEvent
             onCommandInput(event.currentTarget.value, nativeEvent.isComposing)
           }}
           onCompositionStart={onCompositionStart}
-          onCompositionEnd={(event: CompositionEvent<HTMLInputElement>) =>
+          onCompositionEnd={(event: CompositionEvent<HTMLTextAreaElement>) =>
             onCompositionEnd(event.currentTarget.value)
           }
           onKeyDown={onKeyDown}
@@ -84,6 +80,9 @@ const TerminalCanvas = forwardRef<HTMLCanvasElement, TerminalCanvasProps>(
           autoCapitalize="none"
           autoCorrect="off"
           spellCheck={false}
+          data-form-type="other"
+          data-lpignore="true"
+          data-1p-ignore="true"
         />
       </div>
     )

@@ -27,6 +27,18 @@ test('renders app component', () => {
   expect(container).toBeTruthy()
 })
 
+test('uses a hidden textarea only as an IME bridge', () => {
+  render(<App />)
+  const input = screen.getByLabelText('터미널 입력')
+
+  expect(input.tagName).toBe('TEXTAREA')
+  expect(input).toHaveClass('terminal-ime-input')
+  expect(input).not.toHaveAttribute('type')
+  expect(input).not.toHaveClass('command-password')
+  expect(input).toHaveAttribute('autocomplete', 'off')
+  expect(input).toHaveAttribute('data-lpignore', 'true')
+})
+
 test('sends ordinary text immediately', () => {
   render(<App />)
   const input = screen.getByLabelText('터미널 입력')

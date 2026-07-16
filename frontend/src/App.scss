@@ -36,11 +36,10 @@ body * {
   font-weight: normal !important;
 }
 
-.command {
-  background-color: rgba(0, 0, 0, 0.0);
-  font-size: 16px;
-  height: 16px;
-  line-height: 16px !important;
+.terminal-ime-input {
+  background: transparent;
+  width: 1px !important;
+  height: 1px !important;
   margin: 0 !important;
   padding: 0 !important;
   border: 0 !important;
@@ -48,12 +47,11 @@ body * {
   position: absolute;
   left: 0;
   top: 0;
-  color: #ffffff;
-}
-
-.command-password {
-  -webkit-text-security: disc;
-  text-security: disc;
+  opacity: 0;
+  overflow: hidden;
+  resize: none;
+  pointer-events: none;
+  caret-color: transparent;
 }
 
 .smart-mouse-box {

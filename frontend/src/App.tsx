@@ -55,7 +55,6 @@ const debug = debugFactory('bbs-web')
 
 function App() {
   const [command, setCommand] = useState<string>('')
-  const [commandType, setCommandType] = useState<string>('text')
   const [applyDiag, setApplyDiag] = useState<boolean>(false)
 
   // Notification state
@@ -66,7 +65,7 @@ function App() {
   // Refs
   const terminalRef = useRef<HTMLCanvasElement>(null)
   const smartMouseBoxRef = useRef<HTMLDivElement>(null)
-  const commandRef = useRef<HTMLInputElement>(null)
+  const commandRef = useRef<HTMLTextAreaElement>(null)
   const fileToUploadRef = useRef<HTMLInputElement>(null)
   const isComposingRef = useRef(false)
   const ignoredCompositionRef = useRef<string | null>(null)
@@ -201,7 +200,7 @@ function App() {
     setCommand('')
   }
 
-  const onKeyDown = (event: KeyboardEvent<HTMLInputElement>): void => {
+  const onKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>): void => {
     const sequence = getTerminalKeySequence(
       {
         key: event.key,
@@ -269,8 +268,7 @@ function App() {
       terminalRef,
       smartMouseBoxRef,
       commandRef,
-      focusCommand,
-      setCommandType
+      focusCommand
     )
     window.addEventListener('resize', onResize)
     window.addEventListener('beforeunload', disconnectSocket)
@@ -296,7 +294,6 @@ function App() {
         commandRef={commandRef}
         smartMouseBoxRef={smartMouseBoxRef}
         command={command}
-        commandType={commandType}
         onTerminalClick={focusCommand}
         onMouseMove={mouseMove}
         onSmartMouseClick={smartMouseClicked}

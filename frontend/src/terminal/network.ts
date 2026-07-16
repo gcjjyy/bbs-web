@@ -3,7 +3,7 @@ import io from 'socket.io-client'
 import { Buffer } from 'buffer'
 import { resetTerminalState, terminalState } from './state'
 import { write } from './emulation'
-import type { RefObject, Dispatch, SetStateAction } from 'react'
+import type { RefObject } from 'react'
 
 const debug = debugFactory('bbs-web')
 
@@ -20,9 +20,8 @@ export const setDataInterceptor = (interceptor: DataInterceptor | null): void =>
 export const setupNetwork = (
   terminalRef: RefObject<HTMLCanvasElement | null>,
   smartMouseBoxRef: RefObject<HTMLDivElement | null>,
-  commandRef: RefObject<HTMLInputElement | null>,
-  focusCommand: () => void,
-  setCommandType: Dispatch<SetStateAction<string>>
+  commandRef: RefObject<HTMLTextAreaElement | null>,
+  focusCommand: () => void
 ): void => {
   const host = window.location.href
 
@@ -92,14 +91,6 @@ export const setupNetwork = (
       return
     }
 
-    // Check if the password input phrase
-    const pattern = /비밀번호 :/
-    const result = pattern.exec(Buffer.from(data).toString())
-    if (result) {
-      setCommandType('password')
-    } else {
-      setCommandType('text')
-    }
     write(Buffer.from(data).toString(), terminalRef, smartMouseBoxRef, commandRef)
   })
 

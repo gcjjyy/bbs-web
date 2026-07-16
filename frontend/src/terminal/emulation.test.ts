@@ -28,7 +28,7 @@ const smartMouseBoxRef = {
 const commandRef = {
   current: {
     style: {}
-  } as HTMLInputElement
+  } as HTMLTextAreaElement
 }
 
 const createContext = () =>

@@ -52,10 +52,10 @@ const terminalRef = {
   } as HTMLCanvasElement
 }
 const smartMouseBoxRef = { current: { style: {} } as HTMLDivElement }
-const commandRef = { current: { style: {} } as HTMLInputElement }
+const commandRef = { current: { style: {} } as HTMLTextAreaElement }
 
 const setup = () =>
-  setupNetwork(terminalRef, smartMouseBoxRef, commandRef, vi.fn(), vi.fn())
+  setupNetwork(terminalRef, smartMouseBoxRef, commandRef, vi.fn())
 
 beforeEach(() => {
   mockSocket = createFakeSocket()

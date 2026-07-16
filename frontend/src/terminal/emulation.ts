@@ -582,7 +582,7 @@ export const write = (
   text: string,
   terminalRef: RefObject<HTMLCanvasElement | null>,
   smartMouseBoxRef: RefObject<HTMLDivElement | null>,
-  commandRef: RefObject<HTMLInputElement | null>,
+  commandRef: RefObject<HTMLTextAreaElement | null>,
   options: WriteOptions = {}
 ): void => {
   const { ctx2d, cursor, attr, COLOR } = terminalState
@@ -707,7 +707,7 @@ export const write = (
 export const replayTerminalHistory = (
   terminalRef: RefObject<HTMLCanvasElement | null>,
   smartMouseBoxRef: RefObject<HTMLDivElement | null>,
-  commandRef: RefObject<HTMLInputElement | null>
+  commandRef: RefObject<HTMLTextAreaElement | null>
 ): void => {
   const history = terminalState.lastPageText
 
@@ -740,7 +740,7 @@ export const replayTerminalHistory = (
 
 export const moveCommandInputPosition = (
   terminalRef: RefObject<HTMLCanvasElement | null>,
-  commandRef: RefObject<HTMLInputElement | null>
+  commandRef: RefObject<HTMLTextAreaElement | null>
 ): void => {
   if (!terminalRef.current || !commandRef.current) return
 
@@ -752,16 +752,10 @@ export const moveCommandInputPosition = (
 
   const tmLeft = bcr.left + window.pageXOffset
   const tmTop = bcr.top + window.pageYOffset
-  const tmWidth = bcr.width
-
   const cmLeft = tmLeft + scaledCursorX
   const cmTop = tmTop + scaledCursorY - (20 - 16 * terminalState.rate) / 2
-  const cmWidth = tmWidth - (cmLeft - tmLeft)
 
   commandRef.current.style.left = `${cmLeft}px`
   commandRef.current.style.top = `${cmTop}px`
-  commandRef.current.style.width = `${cmWidth}px`
-
   commandRef.current.style.fontSize = `${16 * terminalState.rate}px`
-  commandRef.current.style.height = '20px'
 }
