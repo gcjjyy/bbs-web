@@ -43,6 +43,10 @@ import {
   getTerminalKeySequence,
   normalizePastedText
 } from './terminal/input'
+import {
+  setTerminalComposition,
+  setupTerminalInputOverlay
+} from './terminal/inputOverlay'
 import useZmodem from './hooks/useZmodem'
 import type { ThemeName } from './themes'
 import { getTerminalCanvasFont } from './utils/terminalFont'
@@ -64,6 +68,7 @@ function App() {
 
   // Refs
   const terminalRef = useRef<HTMLCanvasElement>(null)
+  const inputOverlayRef = useRef<HTMLCanvasElement>(null)
   const smartMouseBoxRef = useRef<HTMLDivElement>(null)
   const commandRef = useRef<HTMLTextAreaElement>(null)
   const fileToUploadRef = useRef<HTMLInputElement>(null)
@@ -175,7 +180,12 @@ function App() {
   ): void => {
     setCommand(value)
 
-    if (isComposingRef.current || eventIsComposing) return
+    if (isComposingRef.current || eventIsComposing) {
+      setTerminalComposition(value)
+      return
+    }
+
+    setTerminalComposition('')
 
     if (ignoredCompositionRef.current === value) {
       ignoredCompositionRef.current = null
@@ -191,11 +201,13 @@ function App() {
   const onCompositionStart = (): void => {
     isComposingRef.current = true
     ignoredCompositionRef.current = null
+    setTerminalComposition('')
   }
 
   const onCompositionEnd = (value: string): void => {
     isComposingRef.current = false
     ignoredCompositionRef.current = value
+    setTerminalComposition('')
     sendTerminalInput(value)
     setCommand('')
   }
@@ -264,6 +276,7 @@ function App() {
     debug('Setup')
 
     setupTerminal()
+    setupTerminalInputOverlay(inputOverlayRef.current)
     setupNetwork(
       terminalRef,
       smartMouseBoxRef,
@@ -275,6 +288,7 @@ function App() {
 
     return () => {
       setDataInterceptor(null)
+      setupTerminalInputOverlay(null)
       disconnectSocket()
       window.removeEventListener('resize', onResize)
       window.removeEventListener('beforeunload', disconnectSocket)
@@ -291,6 +305,7 @@ function App() {
 
       <TerminalCanvas
         ref={terminalRef}
+        inputOverlayRef={inputOverlayRef}
         commandRef={commandRef}
         smartMouseBoxRef={smartMouseBoxRef}
         command={command}

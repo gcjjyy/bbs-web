@@ -8,6 +8,7 @@ import {
 import { CANVAS_WIDTH, CANVAS_HEIGHT } from '../constants/terminalConfig'
 
 interface TerminalCanvasProps {
+  inputOverlayRef: RefObject<HTMLCanvasElement | null>
   commandRef: RefObject<HTMLTextAreaElement | null>
   smartMouseBoxRef: RefObject<HTMLDivElement | null>
   command: string
@@ -24,6 +25,7 @@ interface TerminalCanvasProps {
 const TerminalCanvas = forwardRef<HTMLCanvasElement, TerminalCanvasProps>(
   function TerminalCanvas(
     {
+      inputOverlayRef,
       commandRef,
       smartMouseBoxRef,
       command,
@@ -40,15 +42,23 @@ const TerminalCanvas = forwardRef<HTMLCanvasElement, TerminalCanvasProps>(
   ) {
     return (
       <div className="text-center mt-3">
-        <canvas
-          ref={ref}
-          width={CANVAS_WIDTH}
-          height={CANVAS_HEIGHT}
-          className="w-100"
-          style={{ maxWidth: '700px' }}
-          onClick={onTerminalClick}
-          onMouseMove={(event) => onMouseMove(event.clientX, event.clientY)}
-        />
+        <div className="terminal-canvas-stack">
+          <canvas
+            ref={ref}
+            width={CANVAS_WIDTH}
+            height={CANVAS_HEIGHT}
+            className="terminal-canvas"
+            onClick={onTerminalClick}
+            onMouseMove={(event) => onMouseMove(event.clientX, event.clientY)}
+          />
+          <canvas
+            ref={inputOverlayRef}
+            width={CANVAS_WIDTH}
+            height={CANVAS_HEIGHT}
+            className="terminal-input-overlay"
+            aria-hidden="true"
+          />
+        </div>
         <div
           ref={smartMouseBoxRef}
           className="smart-mouse-box"

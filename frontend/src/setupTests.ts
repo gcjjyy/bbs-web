@@ -7,6 +7,7 @@ import { vi } from 'vitest'
 
 Object.defineProperty(HTMLCanvasElement.prototype, 'getContext', {
   value: () => ({
+    clearRect: vi.fn(),
     fillRect: vi.fn(),
     fillText: vi.fn(),
     drawImage: vi.fn(),
