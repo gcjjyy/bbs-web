@@ -12,7 +12,7 @@ import {
   terminalState
 } from './state'
 import { scheduleSmartMouseRebuild } from './smartMouse'
-import { renderTerminalInputOverlay } from './inputOverlay'
+import { refreshTerminalInputOverlay } from './inputOverlay'
 import type { RefObject } from 'react'
 import {
   getTerminalCanvasFont,
@@ -703,7 +703,7 @@ export const write = (
 
   // Move the command textfield to the cursor position
   moveCommandInputPosition(terminalRef, commandRef)
-  renderTerminalInputOverlay()
+  refreshTerminalInputOverlay()
 }
 
 export const replayTerminalHistory = (

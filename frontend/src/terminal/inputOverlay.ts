@@ -13,6 +13,29 @@ import { terminalState } from './state'
 
 let overlayCanvas: HTMLCanvasElement | null = null
 let compositionText = ''
+let cursorVisible = true
+let cursorBlinkTimer: ReturnType<typeof setInterval> | null = null
+
+const CURSOR_WIDTH = 3
+const CURSOR_HEIGHT = 12
+const CURSOR_TOP_OFFSET = (FONT_HEIGHT - CURSOR_HEIGHT) / 2
+const CURSOR_COLOR = '#ffff00'
+const CURSOR_BLINK_INTERVAL_MS = 900
+
+const restartCursorBlink = (): void => {
+  if (cursorBlinkTimer !== null) {
+    clearInterval(cursorBlinkTimer)
+    cursorBlinkTimer = null
+  }
+
+  cursorVisible = true
+  if (!overlayCanvas) return
+
+  cursorBlinkTimer = setInterval(() => {
+    cursorVisible = !cursorVisible
+    renderTerminalInputOverlay()
+  }, CURSOR_BLINK_INTERVAL_MS)
+}
 
 const getInputColors = (): { text: string; background: string } => {
   const { attr, COLOR } = terminalState
@@ -76,13 +99,20 @@ export const renderTerminalInputOverlay = (): void => {
     }
   }
 
-  ctx.fillStyle = colors.text
-  ctx.fillRect(
-    position.x * FONT_WIDTH,
-    position.y * FONT_HEIGHT,
-    2,
-    FONT_HEIGHT
-  )
+  if (cursorVisible) {
+    ctx.fillStyle = CURSOR_COLOR
+    ctx.fillRect(
+      position.x * FONT_WIDTH,
+      position.y * FONT_HEIGHT + CURSOR_TOP_OFFSET,
+      CURSOR_WIDTH,
+      CURSOR_HEIGHT
+    )
+  }
+}
+
+export const refreshTerminalInputOverlay = (): void => {
+  restartCursorBlink()
+  renderTerminalInputOverlay()
 }
 
 export const setupTerminalInputOverlay = (
@@ -90,6 +120,7 @@ export const setupTerminalInputOverlay = (
 ): void => {
   overlayCanvas = canvas
   compositionText = ''
+  restartCursorBlink()
 
   if (overlayCanvas) {
     const ctx = overlayCanvas.getContext('2d')
@@ -104,5 +135,5 @@ export const setupTerminalInputOverlay = (
 
 export const setTerminalComposition = (text: string): void => {
   compositionText = text
-  renderTerminalInputOverlay()
+  refreshTerminalInputOverlay()
 }
