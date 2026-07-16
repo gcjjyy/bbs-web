@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import { vi } from 'vitest'
 import App from './App'
+import { terminalState } from './terminal/state'
 
 const { sendTerminalInputMock } = vi.hoisted(() => ({
   sendTerminalInputMock: vi.fn()
@@ -16,6 +17,9 @@ vi.mock('./terminal/network', () => ({
 
 beforeEach(() => {
   sendTerminalInputMock.mockClear()
+  terminalState.cursor = { x: 0, y: 0 }
+  terminalState.wrapPending = false
+  terminalState.wideCharCells.clear()
 })
 
 test('renders app component', () => {
@@ -71,4 +75,15 @@ test('sends terminal key sequences on keydown', () => {
   expect(sendTerminalInputMock).toHaveBeenNthCalledWith(1, '\x1b[A')
   expect(sendTerminalInputMock).toHaveBeenNthCalledWith(2, '\b')
   expect(sendTerminalInputMock).toHaveBeenNthCalledWith(3, '\x0f')
+})
+
+test('sends two backspaces after a two-column character', () => {
+  terminalState.cursor = { x: 2, y: 0 }
+  terminalState.wideCharCells.add('0,0')
+  render(<App />)
+  const input = screen.getByLabelText('터미널 입력')
+
+  fireEvent.keyDown(input, { key: 'Backspace', code: 'Backspace' })
+
+  expect(sendTerminalInputMock).toHaveBeenCalledWith('\b\b')
 })

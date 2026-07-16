@@ -28,6 +28,7 @@ import {
 import { terminalState, initializeColors } from './terminal/state'
 import { handleMouseMove, handleSmartMouseClick, rebuildSmartMouse } from './terminal/smartMouse'
 import {
+  getBackspaceInputSequence,
   moveCommandInputPosition,
   replayTerminalHistory
 } from './terminal/emulation'
@@ -220,8 +221,11 @@ function App() {
 
     if (sequence === null) return
 
+    const inputSequence =
+      event.key === 'Backspace' ? getBackspaceInputSequence() : sequence
+
     event.preventDefault()
-    sendTerminalInput(sequence)
+    sendTerminalInput(inputSequence)
   }
 
   const onPaste = (text: string): void => {

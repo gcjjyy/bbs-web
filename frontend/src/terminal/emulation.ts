@@ -532,18 +532,19 @@ const lf = (): void => {
 }
 
 const backspace = (): void => {
-  const { cursor } = terminalState
-
   if (terminalState.wrapPending) {
     terminalState.wrapPending = false
-    const wideStart = findWideCharStart(cursor.x, cursor.y)
-    if (wideStart !== null && wideStart < cursor.x) {
-      cursor.x = wideStart
-    }
-  } else if (cursor.x > 0) {
-    const wideStart = findWideCharStart(cursor.x - 1, cursor.y)
-    cursor.x = wideStart ?? cursor.x - 1
+  } else if (terminalState.cursor.x > 0) {
+    terminalState.cursor.x--
   }
+}
+
+export const getBackspaceInputSequence = (): string => {
+  const { cursor, wrapPending } = terminalState
+  const previousColumn = wrapPending ? cursor.x : cursor.x - 1
+  const wideStart = findWideCharStart(previousColumn, cursor.y)
+
+  return wideStart === null ? '\b' : '\b\b'
 }
 
 const horizontalTab = (): void => {

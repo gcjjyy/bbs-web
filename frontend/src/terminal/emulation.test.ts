@@ -1,5 +1,9 @@
 import { vi } from 'vitest'
-import { write, replayTerminalHistory } from './emulation'
+import {
+  getBackspaceInputSequence,
+  replayTerminalHistory,
+  write
+} from './emulation'
 import {
   MAX_TERMINAL_HISTORY_CHARS,
   resetTerminalState,
@@ -79,10 +83,13 @@ test('applies the echoed backspace-space-backspace erase sequence', () => {
   expect(ctx.fillRect).toHaveBeenCalledWith(16, 0, 8, 16)
 })
 
-test('erases an echoed two-column Korean character as one character', () => {
+test('sends and applies two byte erases for a Korean character', () => {
   const ctx = terminalState.ctx2d as CanvasRenderingContext2D
 
-  write('a한\b \b', terminalRef, smartMouseBoxRef, commandRef)
+  write('a한', terminalRef, smartMouseBoxRef, commandRef)
+  expect(getBackspaceInputSequence()).toBe('\b\b')
+
+  write('\b \b\b \b', terminalRef, smartMouseBoxRef, commandRef)
 
   expect(terminalState.cursor).toEqual({ x: 1, y: 0 })
   expect(terminalState.wideCharCells).toHaveLength(0)
@@ -90,11 +97,20 @@ test('erases an echoed two-column Korean character as one character', () => {
 })
 
 test('erases a wide character correctly at the right margin', () => {
-  write(`${'x'.repeat(78)}한\b \b`, terminalRef, smartMouseBoxRef, commandRef)
+  write(`${'x'.repeat(78)}한`, terminalRef, smartMouseBoxRef, commandRef)
+  expect(getBackspaceInputSequence()).toBe('\b\b')
+
+  write('\b \b\b \b', terminalRef, smartMouseBoxRef, commandRef)
 
   expect(terminalState.cursor).toEqual({ x: 78, y: 0 })
   expect(terminalState.wrapPending).toBe(false)
   expect(terminalState.wideCharCells).toHaveLength(0)
+})
+
+test('sends one backspace for a single-column character', () => {
+  write('a한x', terminalRef, smartMouseBoxRef, commandRef)
+
+  expect(getBackspaceInputSequence()).toBe('\b')
 })
 
 test('wraps printable text at the 80-column margin', () => {
