@@ -79,6 +79,24 @@ test('applies the echoed backspace-space-backspace erase sequence', () => {
   expect(ctx.fillRect).toHaveBeenCalledWith(16, 0, 8, 16)
 })
 
+test('erases an echoed two-column Korean character as one character', () => {
+  const ctx = terminalState.ctx2d as CanvasRenderingContext2D
+
+  write('a한\b \b', terminalRef, smartMouseBoxRef, commandRef)
+
+  expect(terminalState.cursor).toEqual({ x: 1, y: 0 })
+  expect(terminalState.wideCharCells).toHaveLength(0)
+  expect(ctx.fillRect).toHaveBeenCalledWith(8, 0, 16, 16)
+})
+
+test('erases a wide character correctly at the right margin', () => {
+  write(`${'x'.repeat(78)}한\b \b`, terminalRef, smartMouseBoxRef, commandRef)
+
+  expect(terminalState.cursor).toEqual({ x: 78, y: 0 })
+  expect(terminalState.wrapPending).toBe(false)
+  expect(terminalState.wideCharCells).toHaveLength(0)
+})
+
 test('wraps printable text at the 80-column margin', () => {
   write('x'.repeat(80), terminalRef, smartMouseBoxRef, commandRef)
   expect(terminalState.cursor).toEqual({ x: 79, y: 0 })

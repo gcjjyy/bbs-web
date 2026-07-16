@@ -28,6 +28,7 @@ export const terminalState: TerminalState = {
   applicationCursorKeys: false,
   autoWrapMode: true,
   wrapPending: false,
+  wideCharCells: new Set(),
   windowTop: 0,
   windowBottom: SCREEN_HEIGHT - 1,
   COLOR: []
@@ -81,6 +82,7 @@ export const resetTerminalState = (): void => {
   terminalState.applicationCursorKeys = false
   terminalState.autoWrapMode = true
   terminalState.wrapPending = false
+  terminalState.wideCharCells.clear()
   terminalState.windowTop = 0
   terminalState.windowBottom = SCREEN_HEIGHT - 1
 }

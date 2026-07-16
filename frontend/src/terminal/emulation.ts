@@ -36,6 +36,67 @@ const SGR_BACKGROUND_COLORS: Record<number, number> = {
 // but not rendered
 const SGR_IGNORED = new Set([1, 2, 4, 5, 8, 22, 24, 25, 28])
 
+const cellKey = (x: number, y: number): string => `${x},${y}`
+
+const parseCellKey = (key: string): { x: number; y: number } => {
+  const [x, y] = key.split(',').map(Number)
+  return { x, y }
+}
+
+const findWideCharStart = (x: number, y: number): number | null => {
+  if (terminalState.wideCharCells.has(cellKey(x, y))) return x
+  if (x > 0 && terminalState.wideCharCells.has(cellKey(x - 1, y))) {
+    return x - 1
+  }
+  return null
+}
+
+const removeWideCharsInRect = (
+  startX: number,
+  startY: number,
+  endX: number,
+  endY: number
+): void => {
+  for (const key of terminalState.wideCharCells) {
+    const { x, y } = parseCellKey(key)
+    if (
+      y >= startY &&
+      y <= endY &&
+      x <= endX &&
+      x + 1 >= startX
+    ) {
+      terminalState.wideCharCells.delete(key)
+    }
+  }
+}
+
+const clearOverlappingWideChars = (
+  x: number,
+  y: number,
+  width: number,
+  backgroundColor: string
+): void => {
+  const { ctx2d } = terminalState
+  if (!ctx2d) return
+
+  const starts = new Set<number>()
+  for (let column = x; column < x + width; column++) {
+    const start = findWideCharStart(column, y)
+    if (start !== null) starts.add(start)
+  }
+
+  ctx2d.fillStyle = backgroundColor
+  for (const start of starts) {
+    ctx2d.fillRect(
+      start * FONT_WIDTH,
+      y * FONT_HEIGHT,
+      2 * FONT_WIDTH,
+      FONT_HEIGHT
+    )
+    terminalState.wideCharCells.delete(cellKey(start, y))
+  }
+}
+
 const resetAttributes = (): void => {
   const { attr } = terminalState
   attr.reversed = false
@@ -73,7 +134,10 @@ const drawBlock = (blockType: number): void => {
   const { ctx2d, cursor, attr, COLOR } = terminalState
   if (!ctx2d) return
 
-  const x = cursor.x * FONT_WIDTH
+  preparePrintable(2)
+
+  const startX = cursor.x
+  const x = startX * FONT_WIDTH
   const y = cursor.y * FONT_HEIGHT
   let textColor = COLOR[attr.textColor]
   let backgroundColor = COLOR[attr.backgroundColor]
@@ -81,6 +145,8 @@ const drawBlock = (blockType: number): void => {
     textColor = COLOR[attr.backgroundColor]
     backgroundColor = COLOR[attr.textColor]
   }
+
+  clearOverlappingWideChars(startX, cursor.y, 2, backgroundColor)
 
   // 2-column wide block (original EUC-KR char was 2 bytes wide)
   const width = 2 * FONT_WIDTH
@@ -107,8 +173,8 @@ const drawBlock = (blockType: number): void => {
       ctx2d.fillRect(x, y, width, height)
   }
 
-  // Advance cursor by 2 columns
-  cursor.x += 2
+  terminalState.wideCharCells.add(cellKey(startX, cursor.y))
+  advanceAfterPrintable(2)
 }
 
 const clearScreen = (
@@ -140,6 +206,7 @@ const clearScreen = (
     cursor.x = 0
     cursor.y = 0
     terminalState.wrapPending = false
+    terminalState.wideCharCells.clear()
   } else if (mode === 0) {
     // Clear from cursor to end of screen
     ctx2d.fillRect(
@@ -156,12 +223,35 @@ const clearScreen = (
         terminalRef.current.height - (cursor.y + 1) * FONT_HEIGHT
       )
     }
+    removeWideCharsInRect(
+      cursor.x,
+      cursor.y,
+      SCREEN_WIDTH - 1,
+      cursor.y
+    )
+    if (cursor.y < SCREEN_HEIGHT - 1) {
+      removeWideCharsInRect(
+        0,
+        cursor.y + 1,
+        SCREEN_WIDTH - 1,
+        SCREEN_HEIGHT - 1
+      )
+    }
   } else if (mode === 1) {
     // Clear from beginning of screen to cursor
     if (cursor.y > 0) {
       ctx2d.fillRect(0, 0, terminalRef.current.width, cursor.y * FONT_HEIGHT)
     }
     ctx2d.fillRect(0, cursor.y * FONT_HEIGHT, (cursor.x + 1) * FONT_WIDTH, FONT_HEIGHT)
+    if (cursor.y > 0) {
+      removeWideCharsInRect(
+        0,
+        0,
+        SCREEN_WIDTH - 1,
+        cursor.y - 1
+      )
+    }
+    removeWideCharsInRect(0, cursor.y, cursor.x, cursor.y)
   }
 }
 
@@ -177,9 +267,11 @@ const clearLine = (
   if (mode === 2) {
     // Whole line
     ctx2d.fillRect(0, cursor.y * FONT_HEIGHT, terminalRef.current.width, FONT_HEIGHT)
+    removeWideCharsInRect(0, cursor.y, SCREEN_WIDTH - 1, cursor.y)
   } else if (mode === 1) {
     // Beginning of line to cursor
     ctx2d.fillRect(0, cursor.y * FONT_HEIGHT, (cursor.x + 1) * FONT_WIDTH, FONT_HEIGHT)
+    removeWideCharsInRect(0, cursor.y, cursor.x, cursor.y)
   } else if (mode === 0) {
     // Cursor to end of line
     ctx2d.fillRect(
@@ -187,6 +279,12 @@ const clearLine = (
       cursor.y * FONT_HEIGHT,
       terminalRef.current.width - cursor.x * FONT_WIDTH,
       FONT_HEIGHT
+    )
+    removeWideCharsInRect(
+      cursor.x,
+      cursor.y,
+      SCREEN_WIDTH - 1,
+      cursor.y
     )
   }
 }
@@ -407,6 +505,17 @@ const screenScrollUp = (): void => {
       pos.y--
     }
   }
+
+  const shiftedWideChars = new Set<string>()
+  for (const key of terminalState.wideCharCells) {
+    const { x, y } = parseCellKey(key)
+    if (y >= windowTop && y <= windowBottom) {
+      if (y > windowTop) shiftedWideChars.add(cellKey(x, y - 1))
+    } else {
+      shiftedWideChars.add(key)
+    }
+  }
+  terminalState.wideCharCells = shiftedWideChars
 }
 
 const cr = (): void => {
@@ -423,10 +532,17 @@ const lf = (): void => {
 }
 
 const backspace = (): void => {
+  const { cursor } = terminalState
+
   if (terminalState.wrapPending) {
     terminalState.wrapPending = false
-  } else if (terminalState.cursor.x > 0) {
-    terminalState.cursor.x--
+    const wideStart = findWideCharStart(cursor.x, cursor.y)
+    if (wideStart !== null && wideStart < cursor.x) {
+      cursor.x = wideStart
+    }
+  } else if (cursor.x > 0) {
+    const wideStart = findWideCharStart(cursor.x - 1, cursor.y)
+    cursor.x = wideStart ?? cursor.x - 1
   }
 }
 
@@ -543,6 +659,13 @@ export const write = (
               backgroundColor = COLOR[attr.textColor]
             }
 
+            clearOverlappingWideChars(
+              cursor.x,
+              cursor.y,
+              charWidth,
+              backgroundColor
+            )
+
             ctx2d.fillStyle = backgroundColor
             ctx2d.fillRect(cursor_px.x, cursor_px.y, charWidth * FONT_WIDTH, FONT_HEIGHT)
             ctx2d.fillStyle = textColor
@@ -558,6 +681,12 @@ export const write = (
 
             if (shouldOverrideFont) {
               ctx2d.font = previousFont
+            }
+
+            if (charWidth === 2) {
+              terminalState.wideCharCells.add(
+                cellKey(cursor.x, cursor.y)
+              )
             }
 
             advanceAfterPrintable(charWidth)
@@ -588,6 +717,7 @@ export const replayTerminalHistory = (
   terminalState.applicationCursorKeys = false
   terminalState.autoWrapMode = true
   terminalState.wrapPending = false
+  terminalState.wideCharCells.clear()
   terminalState.windowTop = 0
   terminalState.windowBottom = SCREEN_HEIGHT - 1
 

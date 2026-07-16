@@ -48,6 +48,7 @@ export interface TerminalState {
   applicationCursorKeys: boolean
   autoWrapMode: boolean
   wrapPending: boolean
+  wideCharCells: Set<string>
   windowTop: number
   windowBottom: number
   COLOR: string[]
