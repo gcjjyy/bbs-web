@@ -59,6 +59,7 @@ const setup = () =>
 
 beforeEach(() => {
   mockSocket = createFakeSocket()
+  ioMock.mockClear()
   ioMock.mockReturnValue(mockSocket)
   resetTerminalState()
   terminalState.io = null
@@ -102,4 +103,21 @@ test('bbs-error messages are written to the terminal', () => {
   mockSocket.fire('bbs-error', { message: 'BBS disconnected' })
 
   expect(terminalState.lastPageText).toContain('BBS disconnected')
+})
+
+test('connects without a bbs query when no host override is given', () => {
+  setup()
+
+  const options = ioMock.mock.calls[0]![1] as { query?: unknown }
+  expect(options.query).toBeUndefined()
+})
+
+test('sends the requested host/port as a handshake query', () => {
+  setupNetwork(terminalRef, smartMouseBoxRef, commandRef, vi.fn(), {
+    addr: 'other.example.com',
+    port: 1234
+  })
+
+  const options = ioMock.mock.calls[0]![1] as { query?: unknown }
+  expect(options.query).toEqual({ bbsAddr: 'other.example.com', bbsPort: '1234' })
 })

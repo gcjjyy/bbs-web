@@ -11,9 +11,14 @@ import { DISPLAYS } from '../constants/terminalConfig'
 interface NavigationProps {
   onDisplaySelect: (selectedKey: string | null) => void
   onCopyToClipboard: () => void
+  onHostChange: () => void
 }
 
-function Navigation({ onDisplaySelect, onCopyToClipboard }: NavigationProps) {
+function Navigation({
+  onDisplaySelect,
+  onCopyToClipboard,
+  onHostChange
+}: NavigationProps) {
   return (
     <Navbar>
       <Navbar.Brand>
@@ -44,8 +49,24 @@ function Navigation({ onDisplaySelect, onCopyToClipboard }: NavigationProps) {
           placement="bottom"
           overlay={<Tooltip id="copy-tooltip">화면 갈무리</Tooltip>}
         >
-          <Button variant="secondary" onClick={onCopyToClipboard}>
-            갈무리
+          <Button
+            variant="secondary"
+            onClick={onCopyToClipboard}
+            aria-label="화면 갈무리"
+          >
+            <i className="bi bi-camera" />
+          </Button>
+        </OverlayTrigger>
+        <OverlayTrigger
+          placement="bottom"
+          overlay={<Tooltip id="host-tooltip">호스트 변경</Tooltip>}
+        >
+          <Button
+            variant="secondary"
+            onClick={onHostChange}
+            aria-label="호스트 변경"
+          >
+            <i className="bi bi-hdd-network" />
           </Button>
         </OverlayTrigger>
       </div>

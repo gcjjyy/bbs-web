@@ -17,11 +17,17 @@ export const setDataInterceptor = (interceptor: DataInterceptor | null): void =>
   dataInterceptor = interceptor
 }
 
+export interface BBSTarget {
+  addr: string
+  port: number
+}
+
 export const setupNetwork = (
   terminalRef: RefObject<HTMLCanvasElement | null>,
   smartMouseBoxRef: RefObject<HTMLDivElement | null>,
   commandRef: RefObject<HTMLTextAreaElement | null>,
-  focusCommand: () => void
+  focusCommand: () => void,
+  bbsTarget?: BBSTarget
 ): void => {
   const host = window.location.href
 
@@ -30,7 +36,12 @@ export const setupNetwork = (
   debug('Start connecting...')
   terminalState.io = io(host, {
     // Prefer WebSocket for better performance, fallback to polling if blocked by proxy
-    transports: ['websocket', 'polling']
+    transports: ['websocket', 'polling'],
+    // Tell the server which BBS to dial; omitted on the initial connection
+    // so the server falls back to its own configured default
+    ...(bbsTarget && {
+      query: { bbsAddr: bbsTarget.addr, bbsPort: String(bbsTarget.port) }
+    })
   })
 
   // Socket.IO reconnects automatically, but the server opens a brand-new

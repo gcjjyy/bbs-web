@@ -2,10 +2,78 @@ import { describe, expect, test } from 'bun:test'
 import {
   handleTelnetDo,
   handleTelnetSub,
-  preprocessBlockChars
+  preprocessBlockChars,
+  resolveBBSTarget
 } from './telnet'
+import { BBS_ADDR, BBS_PORT } from './constants'
 
 const ESC = '\x1b'
+
+describe('resolveBBSTarget', () => {
+  test('passes through a valid host and port', () => {
+    expect(resolveBBSTarget('example.com', '1234')).toEqual({
+      host: 'example.com',
+      port: 1234
+    })
+  })
+
+  test('falls back to defaults when both are missing', () => {
+    expect(resolveBBSTarget(undefined, undefined)).toEqual({
+      host: BBS_ADDR,
+      port: BBS_PORT
+    })
+  })
+
+  test('falls back to the default host when it contains invalid characters', () => {
+    expect(resolveBBSTarget('evil.com/../etc', '1234')).toEqual({
+      host: BBS_ADDR,
+      port: 1234
+    })
+  })
+
+  test('falls back to the default host when it is an empty string', () => {
+    expect(resolveBBSTarget('', '1234')).toEqual({
+      host: BBS_ADDR,
+      port: 1234
+    })
+  })
+
+  test('trims surrounding whitespace from a valid host', () => {
+    expect(resolveBBSTarget('  example.com  ', '1234')).toEqual({
+      host: 'example.com',
+      port: 1234
+    })
+  })
+
+  test('falls back to the default port when out of range', () => {
+    expect(resolveBBSTarget('example.com', '0')).toEqual({
+      host: 'example.com',
+      port: BBS_PORT
+    })
+    expect(resolveBBSTarget('example.com', '70000')).toEqual({
+      host: 'example.com',
+      port: BBS_PORT
+    })
+  })
+
+  test('falls back to the default port when not an integer', () => {
+    expect(resolveBBSTarget('example.com', '9000.5')).toEqual({
+      host: 'example.com',
+      port: BBS_PORT
+    })
+    expect(resolveBBSTarget('example.com', 'not-a-number')).toEqual({
+      host: 'example.com',
+      port: BBS_PORT
+    })
+  })
+
+  test('ignores non-string query values', () => {
+    expect(resolveBBSTarget(['array'], ['1234'])).toEqual({
+      host: BBS_ADDR,
+      port: BBS_PORT
+    })
+  })
+})
 
 describe('preprocessBlockChars', () => {
   test('replaces full block (0xADFC) with ESC[=901B', () => {

@@ -113,13 +113,42 @@ export function preprocessBlockChars(buffer: Buffer): Buffer {
   return Buffer.from(result)
 }
 
+// Hostnames/IPv4 addresses only - rejects anything that could alter the
+// intended net.createConnection target (paths, whitespace, etc.)
+const HOSTNAME_PATTERN = /^[a-zA-Z0-9.-]{1,253}$/
+
+/**
+ * Validate a client-supplied BBS host/port (e.g. from a Socket.IO handshake
+ * query), falling back to the server's configured defaults when missing or
+ * invalid.
+ */
+export function resolveBBSTarget(
+  rawHost: unknown,
+  rawPort: unknown
+): { host: string; port: number } {
+  const trimmedHost = typeof rawHost === 'string' ? rawHost.trim() : ''
+  const host = HOSTNAME_PATTERN.test(trimmedHost) ? trimmedHost : BBS_ADDR
+
+  const parsedPort = typeof rawPort === 'string' ? Number(rawPort) : NaN
+  const port =
+    Number.isInteger(parsedPort) && parsedPort > 0 && parsedPort <= 65535
+      ? parsedPort
+      : BBS_PORT
+
+  return { host, port }
+}
+
 /**
  * Create and configure a telnet connection to the BBS server
  */
-export function createTelnetConnection(ioSocket: ExtendedSocket): void {
+export function createTelnetConnection(
+  ioSocket: ExtendedSocket,
+  host: string = BBS_ADDR,
+  port: number = BBS_PORT
+): void {
   ioSocket.bbsDisconnected = false
 
-  const netSocket = net.createConnection(BBS_PORT, BBS_ADDR)
+  const netSocket = net.createConnection(port, host)
   ioSocket.netSocket = netSocket
 
   netSocket.on('error', (error) => {

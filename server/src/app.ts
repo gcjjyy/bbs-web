@@ -4,7 +4,7 @@ import { Server } from 'socket.io'
 
 import { SERVER_PORT, SERVER_HOST } from './constants'
 import { encodeFilenameToCp949 } from './encoding'
-import { createTelnetConnection, sendToBBS } from './telnet'
+import { createTelnetConnection, resolveBBSTarget, sendToBBS } from './telnet'
 import { handleBBSData } from './zmodem'
 import type { ExtendedSocket } from './types'
 
@@ -50,11 +50,15 @@ const io = new Server(httpServer, {
 // Socket.IO connection handler
 io.on('connection', (socket) => {
   const ioSocket = socket as ExtendedSocket
-  log(`Client connected: ${ioSocket.client.conn.remoteAddress}`)
+  const { host, port } = resolveBBSTarget(
+    ioSocket.handshake.query.bbsAddr,
+    ioSocket.handshake.query.bbsPort
+  )
+  log(`Client connected: ${ioSocket.client.conn.remoteAddress} -> ${host}:${port}`)
 
   // Create telnet connection to BBS
   try {
-    createTelnetConnection(ioSocket)
+    createTelnetConnection(ioSocket, host, port)
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
     log(`Failed to create BBS connection: ${message}`)

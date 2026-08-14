@@ -23,9 +23,10 @@ import {
   DownloadModal,
   UploadModal,
   NotificationModal,
-  FileSelectModal
+  FileSelectModal,
+  HostModal
 } from './components/modals'
-import { terminalState, initializeColors } from './terminal/state'
+import { terminalState, initializeColors, resetTerminalState } from './terminal/state'
 import { handleMouseMove, handleSmartMouseClick, rebuildSmartMouse } from './terminal/smartMouse'
 import {
   getBackspaceInputSequence,
@@ -57,6 +58,9 @@ Buffer.from('anything', 'base64')
 
 const debug = debugFactory('bbs-web')
 
+const DEFAULT_BBS_HOST = 'bbsweb.oscc.kr'
+const DEFAULT_BBS_PORT = 9000
+
 function App() {
   const [command, setCommand] = useState<string>('')
   const [applyDiag, setApplyDiag] = useState<boolean>(false)
@@ -65,6 +69,11 @@ function App() {
   const [notiDiag, setNotiDiag] = useState<boolean>(false)
   const [notiDiagTitle, setNotiDiagTitle] = useState<string>('')
   const [notiDiagText, setNotiDiagText] = useState<string>('')
+
+  // Host change state
+  const [hostDiag, setHostDiag] = useState<boolean>(false)
+  const [bbsHost, setBbsHost] = useState<string>(DEFAULT_BBS_HOST)
+  const [bbsPort, setBbsPort] = useState<number>(DEFAULT_BBS_PORT)
 
   // Refs
   const terminalRef = useRef<HTMLCanvasElement>(null)
@@ -157,6 +166,26 @@ function App() {
     }
 
     displayChanged(true)
+  }
+
+  // Host change
+  const openHostModal = (): void => {
+    setHostDiag(true)
+  }
+
+  const closeHostModal = (): void => {
+    setHostDiag(false)
+  }
+
+  const connectToHost = (host: string, port: number): void => {
+    setHostDiag(false)
+    setBbsHost(host)
+    setBbsPort(port)
+    resetTerminalState()
+    setupNetwork(terminalRef, smartMouseBoxRef, commandRef, focusCommand, {
+      addr: host,
+      port
+    })
   }
 
   // Clipboard
@@ -301,6 +330,7 @@ function App() {
       <Navigation
         onDisplaySelect={displaySelected}
         onCopyToClipboard={copyToClipboard}
+        onHostChange={openHostModal}
       />
 
       <TerminalCanvas
@@ -369,6 +399,14 @@ function App() {
         show={zmodem.state.szFileSelectDiag}
         onSelect={handleFileSelect}
         onCancel={handleFileSelectCancel}
+      />
+
+      <HostModal
+        show={hostDiag}
+        defaultHost={bbsHost}
+        defaultPort={bbsPort}
+        onConnect={connectToHost}
+        onCancel={closeHostModal}
       />
 
       <LoadingModal show={applyDiag} message="적용 중입니다.." />
