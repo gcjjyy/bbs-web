@@ -175,6 +175,7 @@ function App() {
 
   const closeHostModal = (): void => {
     setHostDiag(false)
+    focusCommand()
   }
 
   const connectToHost = (host: string, port: number): void => {

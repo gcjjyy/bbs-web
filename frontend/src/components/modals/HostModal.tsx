@@ -48,7 +48,14 @@ function HostModal({
   }
 
   return (
-    <Modal show={show} backdrop="static" centered onHide={onCancel}>
+    <Modal
+      show={show}
+      backdrop="static"
+      centered
+      onHide={onCancel}
+      enforceFocus={false}
+      restoreFocus={false}
+    >
       <Modal.Header>호스트 변경</Modal.Header>
       <Form onSubmit={handleSubmit} noValidate>
         <Modal.Body>

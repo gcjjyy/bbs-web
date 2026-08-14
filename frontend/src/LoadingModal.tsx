@@ -7,7 +7,14 @@ interface LoadingModalProps {
 
 function LoadingModal({ show, message }: LoadingModalProps) {
   return (
-    <Modal show={show} size='sm' backdrop='static' centered>
+    <Modal
+      show={show}
+      size='sm'
+      backdrop='static'
+      centered
+      enforceFocus={false}
+      restoreFocus={false}
+    >
       <Modal.Header>
         {message}
       </Modal.Header>
