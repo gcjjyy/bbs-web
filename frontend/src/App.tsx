@@ -48,6 +48,7 @@ import {
   setTerminalComposition,
   setupTerminalInputOverlay
 } from './terminal/inputOverlay'
+import { createTextInputTracker } from './terminal/textInput'
 import useZmodem from './hooks/useZmodem'
 import type { ThemeName } from './themes'
 import { getTerminalCanvasFont } from './utils/terminalFont'
@@ -62,7 +63,6 @@ const DEFAULT_BBS_HOST = 'bbsweb.oscc.kr'
 const DEFAULT_BBS_PORT = 9000
 
 function App() {
-  const [command, setCommand] = useState<string>('')
   const [applyDiag, setApplyDiag] = useState<boolean>(false)
 
   // Notification state
@@ -81,8 +81,9 @@ function App() {
   const smartMouseBoxRef = useRef<HTMLDivElement>(null)
   const commandRef = useRef<HTMLTextAreaElement>(null)
   const fileToUploadRef = useRef<HTMLInputElement>(null)
-  const isComposingRef = useRef(false)
-  const ignoredCompositionRef = useRef<string | null>(null)
+  const textInputRef = useRef(
+    createTextInputTracker(sendTerminalInput, setTerminalComposition)
+  )
 
   // Notification handlers
   const showNotification = (title: string, text: string): void => {
@@ -205,41 +206,22 @@ function App() {
   }
 
   const onCommandInput = (
-    value: string,
-    eventIsComposing: boolean
+    field: HTMLTextAreaElement,
+    isComposing: boolean,
+    inputType: string | undefined
   ): void => {
-    setCommand(value)
-
-    if (isComposingRef.current || eventIsComposing) {
-      setTerminalComposition(value)
-      return
-    }
-
-    setTerminalComposition('')
-
-    if (ignoredCompositionRef.current === value) {
-      ignoredCompositionRef.current = null
-      setCommand('')
-      return
-    }
-
-    ignoredCompositionRef.current = null
-    sendTerminalInput(value)
-    setCommand('')
+    textInputRef.current.input(field, isComposing, inputType)
   }
 
   const onCompositionStart = (): void => {
-    isComposingRef.current = true
-    ignoredCompositionRef.current = null
-    setTerminalComposition('')
+    textInputRef.current.compositionStart()
   }
 
-  const onCompositionEnd = (value: string): void => {
-    isComposingRef.current = false
-    ignoredCompositionRef.current = value
-    setTerminalComposition('')
-    sendTerminalInput(value)
-    setCommand('')
+  const onCompositionEnd = (
+    field: HTMLTextAreaElement,
+    data: string | undefined
+  ): void => {
+    textInputRef.current.compositionEnd(field, data)
   }
 
   const onKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>): void => {
@@ -252,7 +234,7 @@ function App() {
         shiftKey: event.shiftKey,
         metaKey: event.metaKey,
         isComposing:
-          isComposingRef.current ||
+          textInputRef.current.isComposing() ||
           event.nativeEvent.isComposing ||
           event.keyCode === 229,
         altGraphKey: event.getModifierState('AltGraph')
@@ -266,6 +248,9 @@ function App() {
       event.key === 'Backspace' ? getBackspaceInputSequence() : sequence
 
     event.preventDefault()
+    if (event.key === 'Enter') {
+      textInputRef.current.reset(event.currentTarget)
+    }
     sendTerminalInput(inputSequence)
   }
 
@@ -278,7 +263,7 @@ function App() {
   }
 
   const smartMouseClicked = (): void => {
-    handleSmartMouseClick(smartMouseBoxRef, (cmd: string) => enterCommand(cmd, setCommand))
+    handleSmartMouseClick(smartMouseBoxRef, enterCommand)
     focusCommand()
   }
 
@@ -339,7 +324,6 @@ function App() {
         inputOverlayRef={inputOverlayRef}
         commandRef={commandRef}
         smartMouseBoxRef={smartMouseBoxRef}
-        command={command}
         onTerminalClick={focusCommand}
         onMouseMove={mouseMove}
         onSmartMouseClick={smartMouseClicked}

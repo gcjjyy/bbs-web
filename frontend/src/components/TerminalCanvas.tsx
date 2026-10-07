@@ -11,13 +11,19 @@ interface TerminalCanvasProps {
   inputOverlayRef: RefObject<HTMLCanvasElement | null>
   commandRef: RefObject<HTMLTextAreaElement | null>
   smartMouseBoxRef: RefObject<HTMLDivElement | null>
-  command: string
   onTerminalClick: () => void
   onMouseMove: (clientX: number, clientY: number) => void
   onSmartMouseClick: () => void
-  onCommandInput: (value: string, isComposing: boolean) => void
+  onCommandInput: (
+    field: HTMLTextAreaElement,
+    isComposing: boolean,
+    inputType: string | undefined
+  ) => void
   onCompositionStart: () => void
-  onCompositionEnd: (value: string) => void
+  onCompositionEnd: (
+    field: HTMLTextAreaElement,
+    data: string | undefined
+  ) => void
   onKeyDown: (event: KeyboardEvent<HTMLTextAreaElement>) => void
   onPaste: (text: string) => void
 }
@@ -28,7 +34,6 @@ const TerminalCanvas = forwardRef<HTMLCanvasElement, TerminalCanvasProps>(
       inputOverlayRef,
       commandRef,
       smartMouseBoxRef,
-      command,
       onTerminalClick,
       onMouseMove,
       onSmartMouseClick,
@@ -67,16 +72,19 @@ const TerminalCanvas = forwardRef<HTMLCanvasElement, TerminalCanvasProps>(
         <textarea
           ref={commandRef}
           className="terminal-ime-input"
-          value={command}
           aria-label="터미널 입력"
           rows={1}
           onInput={(event: FormEvent<HTMLTextAreaElement>) => {
             const nativeEvent = event.nativeEvent as InputEvent
-            onCommandInput(event.currentTarget.value, nativeEvent.isComposing)
+            onCommandInput(
+              event.currentTarget,
+              nativeEvent.isComposing,
+              nativeEvent.inputType
+            )
           }}
           onCompositionStart={onCompositionStart}
           onCompositionEnd={(event: CompositionEvent<HTMLTextAreaElement>) =>
-            onCompositionEnd(event.currentTarget.value)
+            onCompositionEnd(event.currentTarget, event.data)
           }
           onKeyDown={onKeyDown}
           onPaste={(event) => {

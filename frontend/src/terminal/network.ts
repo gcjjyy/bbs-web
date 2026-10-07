@@ -107,16 +107,12 @@ export const setupNetwork = (
 
 }
 
-export const enterCommand = (
-  command: string,
-  setCommand: Dispatch<SetStateAction<string>>
-): void => {
+export const enterCommand = (command: string): void => {
   if (command) {
     terminalState.io?.emit('data', `${command}\r\n`)
   } else {
     terminalState.io?.emit('data', '\r\n')
   }
-  setCommand('')
 }
 
 export const sendTerminalInput = (data: string): void => {
